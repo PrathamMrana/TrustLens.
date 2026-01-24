@@ -1,0 +1,142 @@
+{
+  "repository_url": "https://github.com/example/repo",
+  "s3_snapshot_path": "s3://duhacks-s3-aicode/repo-snapshot-2024/",
+  "timestamp": "2026-01-24T17:16:34.280751",
+  "overall_confidence": 0.875,
+  "overall_risk_level": "critical",
+  "agent_outputs": [
+    {
+      "agent_type": "feature_extraction",
+      "confidence": 1.0,
+      "findings": [],
+      "risk_level": "none",
+      "metadata": {
+        "features": {
+          "total_loc": 70,
+          "languages": [
+            "py"
+          ],
+          "file_extensions": {
+            "py": 3
+          },
+          "average_file_size": 786.3333333333334,
+          "complexity_indicators": {
+            "nested_depth": 7,
+            "function_count": 10,
+            "class_count": 1
+          }
+        },
+        "file_count": 3
+      },
+      "success": true,
+      "error_message": null
+    },
+    {
+      "agent_type": "security_analysis",
+      "confidence": 0.85,
+      "findings": [
+        {
+          "type": "sql_injection",
+          "severity": "critical",
+          "description": "Potential SQL injection in user authentication",
+          "line": "query = f\"SELECT * FROM users WHERE username='{username}'...\""
+        },
+        {
+          "type": "input_validation",
+          "severity": "high",
+          "description": "Missing input validation on user_id parameter",
+          "line": "return database.query(user_id)"
+        },
+        {
+          "type": "sql_injection",
+          "severity": "critical",
+          "description": "Potential SQL injection in user authentication",
+          "line": "query = f\"SELECT * FROM users WHERE username='{username}'...\""
+        },
+        {
+          "type": "input_validation",
+          "severity": "high",
+          "description": "Missing input validation on user_id parameter",
+          "line": "return database.query(user_id)"
+        },
+        {
+          "type": "sql_injection",
+          "severity": "critical",
+          "description": "Potential SQL injection in user authentication",
+          "line": "query = f\"SELECT * FROM users WHERE username='{username}'...\""
+        },
+        {
+          "type": "input_validation",
+          "severity": "high",
+          "description": "Missing input validation on user_id parameter",
+          "line": "return database.query(user_id)"
+        }
+      ],
+      "risk_level": "critical",
+      "metadata": {
+        "snippets_analyzed": 3,
+        "features_used": [
+          "signals",
+          "risk_indicators",
+          "total_loc"
+        ]
+      },
+      "success": true,
+      "error_message": null
+    },
+    {
+      "agent_type": "code_quality",
+      "confidence": 0.9,
+      "findings": [],
+      "risk_level": "low",
+      "metadata": {
+        "quality_metrics": {
+          "avg_function_length": 7.0,
+          "max_nesting_depth": 7,
+          "total_loc": 70,
+          "avg_file_size": 786.3333333333334,
+          "function_count": 10,
+          "class_count": 1
+        },
+        "advisory": true,
+        "blocking": false
+      },
+      "success": true,
+      "error_message": null
+    },
+    {
+      "agent_type": "decision",
+      "confidence": 0.875,
+      "findings": [
+        {
+          "recommendation": "manual_review_required",
+          "reasoning": "Critical security or logic issues detected",
+          "defer_if_needed": false
+        }
+      ],
+      "risk_level": "critical",
+      "metadata": {
+        "recommendation": "manual_review_required",
+        "defer": false,
+        "conflicts_present": false
+      },
+      "success": true,
+      "error_message": null
+    }
+  ],
+  "conflicts": [],
+  "recommendation": "manual_review_required",
+  "action_recommended": "manual_review_required",
+  "deferred": false,
+  "deferral_reason": null,
+  "metadata": {
+    "system_health": {
+      "total_agents": 4,
+      "successful_agents": 4,
+      "failed_agents": 0,
+      "success_rate": 1.0,
+      "average_confidence": 0.90625,
+      "health_status": "healthy"
+    }
+  }
+}
