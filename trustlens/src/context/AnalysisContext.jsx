@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
-import { ANALYSIS_STEPS, APP_CONFIG } from '../utils/constants';
+import { ANALYSIS_STEPS, APP_CONFIG, MOCK_ANALYSIS_TIME_MS } from '../utils/constants';
 
 const AnalysisContext = createContext(null);
 
@@ -10,6 +10,7 @@ export const AnalysisProvider = ({ children }) => {
     const [currentStepId, setCurrentStepId] = useState(0);
     const [completedMeasurements, setCompletedMeasurements] = useState([]);
     const [results, setResults] = useState(null);
+    const [logs, setLogs] = useState([]); // New logs state
     const [analysisType, setAnalysisType] = useState('deep');
     const [allowSuggestions, setAllowSuggestions] = useState(false);
     const [analysisId, setAnalysisId] = useState(null);
@@ -19,16 +20,85 @@ export const AnalysisProvider = ({ children }) => {
     const [agents, setAgents] = useState([]);
 
     const pollingIntervalRef = useRef(null);
+    const progressIntervalRef = useRef(null);
+
+    const simulateProgress = () => {
+        if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+
+        setCurrentStepId(1);
+
+        // Initial log
+        setLogs(prev => [{
+            id: Date.now(),
+            timestamp: new Date().toLocaleTimeString(),
+            message: `Starting analysis workflow...`,
+            type: 'info'
+        }]);
+
+        progressIntervalRef.current = setInterval(() => {
+            setCurrentStepId(prevStep => {
+                const nextStep = prevStep + 1;
+
+                // Validate bounds
+                if (prevStep <= ANALYSIS_STEPS.length) {
+                    const stepConfig = ANALYSIS_STEPS.find(s => s.id === prevStep);
+                    if (stepConfig) {
+                        // Log completion of current step
+                        setLogs(prev => [{
+                            id: Date.now(),
+                            timestamp: new Date().toLocaleTimeString(),
+                            message: `✓ Completed: ${stepConfig.label}`,
+                            type: 'success'
+                        }, ...prev]);
+                    }
+                }
+
+                if (nextStep <= ANALYSIS_STEPS.length) {
+                    const nextStepConfig = ANALYSIS_STEPS.find(s => s.id === nextStep);
+                    if (nextStepConfig) {
+                        // Log start of next step
+                        setLogs(prev => [{
+                            id: Date.now() + 1,
+                            timestamp: new Date().toLocaleTimeString(),
+                            message: `Processing: ${nextStepConfig.label}...`,
+                            type: 'info'
+                        }, ...prev]);
+                    }
+                }
+
+                // Mark current step as completed before moving to next
+                setCompletedMeasurements(prev => {
+                    if (!prev.includes(prevStep)) {
+                        return [...prev, prevStep];
+                    }
+                    return prev;
+                });
+
+                // If we reached the end of steps, stop simulation
+                if (nextStep > ANALYSIS_STEPS.length) {
+                    clearInterval(progressIntervalRef.current);
+                    return prevStep;
+                }
+
+                return nextStep;
+            });
+        }, MOCK_ANALYSIS_TIME_MS);
+    };
 
     const startAnalysis = async (input, type = 'deep', suggestions = false) => {
         try {
             setError(null);
-            setStatus('UPLOADING');
+            // setStatus('UPLOADING'); // Removed to start immediate feedback
             setResults(null);
             setCurrentStepId(0);
             setCompletedMeasurements([]);
+            setLogs([]); // Reset logs
             setAnalysisType(type);
             setAllowSuggestions(suggestions);
+
+            // Start visual feedback immediately 
+            setStatus('ANALYZING');
+            simulateProgress();
 
             let currentAnalysisId = null;
 
@@ -76,13 +146,15 @@ export const AnalysisProvider = ({ children }) => {
             const startData = await startResponse.json();
             if (!startResponse.ok) throw new Error(startData.message || 'Analysis start failed');
 
-            setStatus('ANALYZING');
+            // setStatus('ANALYZING'); // Already set
+            // simulateProgress(); // Already started
             startPolling(currentAnalysisId);
 
         } catch (err) {
             console.error("Analysis Error:", err);
             setError(err.message);
             setStatus('FAILED');
+            if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
         }
     };
 
@@ -99,6 +171,7 @@ export const AnalysisProvider = ({ children }) => {
                     fetchResults(id);
                 } else if (data.status === 'FAILED') {
                     clearInterval(pollingIntervalRef.current);
+                    if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
                     setStatus('FAILED');
                     setError(data.message || 'Analysis failed');
                 } else {
@@ -113,6 +186,19 @@ export const AnalysisProvider = ({ children }) => {
 
     const fetchResults = async (id) => {
         try {
+            // Stop simulation and mark all as complete
+            if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
+            setCompletedMeasurements(ANALYSIS_STEPS.map(s => s.id));
+            setCurrentStepId(null); // Fix: Remove "Processing..." and show "COMPLETE"
+
+            // Final success log
+            setLogs(prev => [{
+                id: Date.now(),
+                timestamp: new Date().toLocaleTimeString(),
+                message: `Analysis successfully completed.`,
+                type: 'success'
+            }, ...prev]);
+
             // Fetch multiple datasets in parallel
             const [reportRes, agentsRes, reliabilityRes] = await Promise.all([
                 fetch(`${APP_CONFIG.API_BASE_URL}/analysis/report/${id}`),
@@ -159,10 +245,12 @@ export const AnalysisProvider = ({ children }) => {
 
     const resetAnalysis = () => {
         if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
+        if (progressIntervalRef.current) clearInterval(progressIntervalRef.current);
         setStatus('IDLE');
         setResults(null);
         setCurrentStepId(0);
         setCompletedMeasurements([]);
+        setLogs([]); // Reset logs
         setAnalysisId(null);
         setError(null);
         setReport(null);
@@ -176,6 +264,7 @@ export const AnalysisProvider = ({ children }) => {
             currentStepId,
             completedMeasurements,
             results,
+            logs, // Expose logs
             overall: report ? {
                 risk: report.overall_risk_level,
                 confidence: report.overall_confidence,

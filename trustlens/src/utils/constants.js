@@ -14,4 +14,4 @@ export const ANALYSIS_STEPS = [
     { id: 5, label: "Cross-agent consistency check" },
 ];
 
-export const MOCK_ANALYSIS_TIME_MS = 2500; // Time per step for "deliberate speed"
+export const MOCK_ANALYSIS_TIME_MS = 3000; // Time per step for "deliberate speed"

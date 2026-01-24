@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import LiveAnalysisPanel from '../components/LiveAnalysisPanel';
 import AnalysisStatusCard from '../components/AnalysisStatusCard';
+import AnalysisLogs from '../components/AnalysisLogs';
 import AgentCard from '../components/AgentCard';
 import KeyInsights from '../components/KeyInsights';
 import OverallOutcomePanel from '../components/OverallOutcomePanel';
@@ -45,8 +46,13 @@ const SessionPage = () => {
                 <div className="flex-1 space-y-6 pb-20 min-w-0">
                     {/* Active Analysis State */}
                     {status === 'ANALYZING' && (!results || results.length < 5) && (
-                        <div className="py-12">
-                            <AnalysisStatusCard currentStepId={currentStepId} />
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                            <div className="lg:col-span-2 py-8">
+                                <AnalysisStatusCard currentStepId={currentStepId} />
+                            </div>
+                            <div className="lg:col-span-1 h-[400px] sticky top-24">
+                                <AnalysisLogs />
+                            </div>
                         </div>
                     )}
 

@@ -40,7 +40,7 @@ const LiveAnalysisPanel = ({ status, currentStepId, completedMeasurements }) => 
                     <div className="flex items-center justify-between mb-6">
                         <h3 className="text-sm font-medium text-text-secondary uppercase tracking-wider">Analysis Progress</h3>
                         <span className="text-xs text-muted font-mono">
-                            {currentStepId ? `STAGE ${currentStepId}/5` : 'COMPLETE'}
+                            {currentStepId ? `STAGE ${currentStepId}/5` : ''}
                         </span>
                     </div>
 
