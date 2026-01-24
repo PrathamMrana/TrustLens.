@@ -20,16 +20,17 @@ def load_env_file():
             return
         current = current.parent
 
+# Find and load .env file
 load_env_file()
+
+# Create Flask app instance for production usage (e.g. Gunicorn)
+app = create_app()
 
 if __name__ == '__main__':
     logger = Logger("Server")
     logger.info("=" * 60)
     logger.info("Multi-Agent AI Code Review System - REST API")
     logger.info("=" * 60)
-    
-    # Create Flask app
-    app = create_app()
     
     # Get port from environment or use default
     port = int(os.environ.get('PORT', 5000))
