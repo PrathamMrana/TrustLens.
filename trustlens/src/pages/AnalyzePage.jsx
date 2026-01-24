@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import InputPanel from '../components/InputPanel';
-import { useSimulation } from '../context/SimulationContext';
 import { useNavigate } from 'react-router-dom';
 import { Shield, Zap, Info } from 'lucide-react';
 import clsx from 'clsx';
 import { motion } from 'framer-motion';
+import { useAnalysis } from '../context/AnalysisContext';
 
 const AnalyzePage = () => {
-    const { startAnalysis } = useSimulation();
+    const { startAnalysis } = useAnalysis();
     const navigate = useNavigate();
     const [analysisType, setAnalysisType] = useState('deep');
     const [allowSuggestions, setAllowSuggestions] = useState(false);

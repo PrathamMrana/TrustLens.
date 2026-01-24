@@ -174,7 +174,61 @@ class CodeReviewController:
             self.logger.error(f"❌ Clone workflow failed: {e}")
             raise
     
-    # ==================== ANALYSIS EXECUTION ====================
+    def analyze_snippet(self, code: str, language: str = "python") -> Dict[str, Any]:
+        """
+        Ingest a direct code snippet, upload to S3, and return analysis_id.
+        
+        Args:
+            code: Raw code text
+            language: Code language for file extension
+            
+        Returns:
+            Ingestion result with analysis_id
+        """
+        analysis_id = f"analysis-{str(uuid.uuid4())[:8]}"
+        
+        try:
+            # Extension map
+            exts = {
+                "python": ".py", "javascript": ".js", "java": ".java", 
+                "typescript": ".ts", "cpp": ".cpp", "c": ".c"
+            }
+            ext = exts.get(language.lower(), ".txt")
+            filename = f"snippet{ext}"
+            
+            # Save snippet temporarily
+            temp_dir = tempfile.mkdtemp()
+            file_path = os.path.join(temp_dir, filename)
+            with open(file_path, "w", encoding="utf-8") as f:
+                f.write(code)
+            
+            # Upload to S3
+            s3_path = self.s3_uploader.upload_directory(temp_dir, analysis_id)
+            
+            # Store metadata
+            self.analyses[analysis_id] = {
+                "analysis_id": analysis_id,
+                "project_name": f"snippet-{language}",
+                "s3_path": s3_path,
+                "repository_url": "pasted-snippet",
+                "status": "UPLOADED",
+                "progress": 0,
+                "created_at": datetime.now().isoformat(),
+                "source": "snippet"
+            }
+            
+            self.logger.info(f"Ingested code snippet: {analysis_id}")
+            
+            return {
+                "analysis_id": analysis_id,
+                "s3_path": s3_path,
+                "status": "UPLOADED",
+                "message": "Snippet uploaded successfully"
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Snippet ingestion failed: {e}")
+            raise
     
     def start_analysis(self, analysis_id: str, config: Dict[str, Any] = None) -> Dict[str, Any]:
         """

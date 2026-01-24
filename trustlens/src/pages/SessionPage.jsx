@@ -7,7 +7,7 @@ import KeyInsights from '../components/KeyInsights';
 import OverallOutcomePanel from '../components/OverallOutcomePanel';
 import ConflictPanel from '../components/ConflictPanel';
 import FinalDecisionPanel from '../components/FinalDecisionPanel';
-import { useSimulation } from '../context/SimulationContext';
+import { useAnalysis } from '../context/AnalysisContext';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const SessionPage = () => {
@@ -19,15 +19,15 @@ const SessionPage = () => {
         completedMeasurements,
         results,
         overall,
-        sessionId
-    } = useSimulation();
+        analysisId
+    } = useAnalysis();
 
     // Redirect logic
     useEffect(() => {
-        if (!sessionId && status === 'IDLE') {
+        if (!analysisId && status === 'IDLE') {
             navigate('/analyze');
         }
-    }, [sessionId, status, navigate]);
+    }, [analysisId, status, navigate]);
 
     return (
         <div className="container mx-auto px-4 py-8">

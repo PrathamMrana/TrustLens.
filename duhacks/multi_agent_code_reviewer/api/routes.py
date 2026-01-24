@@ -113,6 +113,44 @@ def clone_github():
         }), 500
 
 
+@api_blueprint.route('/repos/snippet', methods=['POST'])
+def analyze_snippet():
+    """
+    POST /api/repos/snippet
+    
+    Handle direct code snippet submission.
+    
+    Request Body:
+    {
+        "code": "...",
+        "language": "python"
+    }
+    """
+    try:
+        data = request.get_json()
+        
+        if not data or not data.get('code'):
+            return jsonify({
+                "error": "Missing code",
+                "message": "Code snippet is required"
+            }), 400
+        
+        code = data['code']
+        language = data.get('language', 'python')
+        
+        # Ingest snippet
+        result = controller.analyze_snippet(code, language)
+        
+        return jsonify(result), 201
+    
+    except Exception as e:
+        logger.error(f"Error in snippet endpoint: {e}")
+        return jsonify({
+            "error": "Snippet submission failed",
+            "message": str(e)
+        }), 500
+
+
 # ==================== 2️⃣ ANALYSIS TRIGGER APIs ====================
 
 @api_blueprint.route('/analysis/start', methods=['POST'])

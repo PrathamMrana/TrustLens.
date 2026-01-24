@@ -1,14 +1,25 @@
-import React from 'react';
-import { MOCK_RESULTS } from '../context/SimulationContext'; // We might need to export this or just mock again
-import { FileText, Download, Share2, Shield, CheckCircle2 } from 'lucide-react';
+import { useAnalysis } from '../context/AnalysisContext';
+import { FileText, Download, Share2, Shield, CheckCircle2, AlertTriangle, Info } from 'lucide-react';
 
 const ReportPage = () => {
+    const { report, results, status, analysisId } = useAnalysis();
+
+    if (status === 'IDLE') return <div className="text-center py-20 text-slate-400">No report available. Start an analysis first.</div>;
+    if (status === 'ANALYZING' || status === 'UPLOADING') return <div className="text-center py-20 text-slate-400">Analysis in progress...</div>;
+    if (!report) return <div className="text-center py-20 text-slate-400">Report data not found.</div>;
+
+    const formattedDate = new Date().toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+    });
+
     return (
         <div className="max-w-4xl mx-auto py-12">
             <div className="flex items-center justify-between mb-8">
                 <div>
-                    <h1 className="text-2xl font-bold text-white mb-2">Audit Report #TR-8829</h1>
-                    <p className="text-slate-400 text-sm">Generated on Jan 24, 2026 • 14:32:01 UTC</p>
+                    <h1 className="text-2xl font-bold text-white mb-2">Audit Report #{analysisId?.substring(0, 8).toUpperCase()}</h1>
+                    <p className="text-slate-400 text-sm">Generated on {formattedDate} • UTC</p>
                 </div>
                 <div className="flex gap-3">
                     <button className="flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-700 text-slate-300 hover:bg-slate-800 text-sm transition-colors">
@@ -28,8 +39,11 @@ const ReportPage = () => {
                             <h3 className="text-lg font-semibold text-white">Executive Summary</h3>
                             <p className="text-slate-400 text-sm mt-1">Multi-Agent Consensus Analysis</p>
                         </div>
-                        <div className="px-3 py-1 bg-yellow-500/10 border border-yellow-500/20 text-yellow-500 rounded text-sm font-medium">
-                            MANUAL REVIEW REQUIRED
+                        <div className={`px-3 py-1 rounded text-sm font-medium border ${report.deferred
+                                ? "bg-yellow-500/10 border-yellow-500/20 text-yellow-500"
+                                : "bg-emerald-500/10 border-emerald-500/20 text-emerald-500"
+                            }`}>
+                            {report.final_decision?.toUpperCase()}
                         </div>
                     </div>
                 </div>
@@ -40,26 +54,44 @@ const ReportPage = () => {
                         <h4 className="text-xs uppercase tracking-wider text-slate-500 font-bold mb-4">Evaluation Context</h4>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                             <div className="p-4 rounded-lg bg-slate-900/50 border border-white/5">
-                                <div className="text-slate-500 text-xs mb-1">Target Repository</div>
-                                <div className="text-slate-300 text-sm font-mono truncate">github.com/corp/auth-svc</div>
+                                <div className="text-slate-500 text-xs mb-1">Target</div>
+                                <div className="text-slate-300 text-sm font-mono truncate">{report.repository_url || "Uploaded Source"}</div>
                             </div>
                             <div className="p-4 rounded-lg bg-slate-900/50 border border-white/5">
-                                <div className="text-slate-500 text-xs mb-1">Analysis Mode</div>
-                                <div className="text-slate-300 text-sm">Deep Review</div>
+                                <div className="text-slate-500 text-xs mb-1">Risk Level</div>
+                                <div className={`text-sm font-bold ${report.overall_risk_level === 'high' || report.overall_risk_level === 'critical'
+                                        ? 'text-red-400' : report.overall_risk_level === 'medium' ? 'text-yellow-400' : 'text-emerald-400'
+                                    }`}>
+                                    {report.overall_risk_level?.toUpperCase()}
+                                </div>
                             </div>
                             <div className="p-4 rounded-lg bg-slate-900/50 border border-white/5">
-                                <div className="text-slate-500 text-xs mb-1">Total Agents</div>
-                                <div className="text-slate-300 text-sm">4 Active</div>
+                                <div className="text-slate-500 text-xs mb-1">Confidence</div>
+                                <div className="text-slate-300 text-sm">{Math.round(report.overall_confidence * 100)}%</div>
                             </div>
                             <div className="p-4 rounded-lg bg-slate-900/50 border border-white/5">
-                                <div className="text-slate-500 text-xs mb-1">Risk Score</div>
-                                <div className="text-yellow-400 text-sm">Elevated</div>
+                                <div className="text-slate-500 text-xs mb-1">Consensus</div>
+                                <div className="text-slate-300 text-sm">{report.disagreement_detected ? "Disputed" : "Unified"}</div>
                             </div>
                         </div>
                     </div>
 
                     <div>
-                        <h4 className="text-xs uppercase tracking-wider text-slate-500 font-bold mb-4">Detailed Verdicts</h4>
+                        <h4 className="text-xs uppercase tracking-wider text-slate-500 font-bold mb-4">Reasoning</h4>
+                        <div className="p-4 rounded-lg bg-blue-500/5 border border-blue-500/20">
+                            <p className="text-slate-300 text-sm leading-relaxed italic">
+                                "{report.system_reasoning}"
+                                {report.deferred && (
+                                    <span className="block mt-2 text-yellow-500/80 not-italic font-medium">
+                                        Reason for Deferral: {report.deferral_reason}
+                                    </span>
+                                )}
+                            </p>
+                        </div>
+                    </div>
+
+                    <div>
+                        <h4 className="text-xs uppercase tracking-wider text-slate-500 font-bold mb-4">Agent Verdicts</h4>
                         <div className="border border-white/5 rounded-lg overflow-hidden">
                             <table className="w-full text-left text-sm">
                                 <thead className="bg-slate-900/50 text-slate-400 font-medium">
@@ -71,22 +103,22 @@ const ReportPage = () => {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-white/5 text-slate-300">
-                                    <tr>
-                                        <td className="p-4 flex items-center gap-2">
-                                            <Shield className="w-4 h-4 text-red-400" /> Security
-                                        </td>
-                                        <td className="p-4 text-red-400">High</td>
-                                        <td className="p-4">88%</td>
-                                        <td className="p-4">Auth Injection Risk</td>
-                                    </tr>
-                                    <tr>
-                                        <td className="p-4 flex items-center gap-2">
-                                            <CheckCircle2 className="w-4 h-4 text-emerald-400" /> Logic
-                                        </td>
-                                        <td className="p-4 text-emerald-400">Low</td>
-                                        <td className="p-4">94%</td>
-                                        <td className="p-4">Valid Control Flow</td>
-                                    </tr>
+                                    {results && results.map((res, i) => (
+                                        <tr key={i}>
+                                            <td className="p-4 flex items-center gap-2">
+                                                {res.name.includes('Security') ? <Shield className="w-4 h-4 text-red-400" /> :
+                                                    res.name.includes('Logic') ? <Brain className="w-4 h-4 text-emerald-400" /> :
+                                                        <Activity className="w-4 h-4 text-blue-400" />} {res.name}
+                                            </td>
+                                            <td className={`p-4 font-medium ${res.risk === 'high' || res.risk === 'critical' ? 'text-red-400' :
+                                                    res.risk === 'medium' ? 'text-yellow-400' : 'text-emerald-400'
+                                                }`}>
+                                                {res.risk?.toUpperCase()}
+                                            </td>
+                                            <td className="p-4">{res.confidence}%</td>
+                                            <td className="p-4 max-w-xs truncate">{res.summary}</td>
+                                        </tr>
+                                    ))}
                                 </tbody>
                             </table>
                         </div>

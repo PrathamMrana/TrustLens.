@@ -3,6 +3,7 @@ export const APP_CONFIG = {
     name: "TrustLens",
     subtitle: "Multi-Agent AI Code Review Orchestrator",
     version: "v1.0.0-beta",
+    API_BASE_URL: "http://localhost:5000/api",
 };
 
 export const ANALYSIS_STEPS = [
