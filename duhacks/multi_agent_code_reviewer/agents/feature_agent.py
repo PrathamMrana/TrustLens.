@@ -1,44 +1,45 @@
 """
 Feature Extraction Agent
 Extracts static features from code WITHOUT using LLM.
+This is the ONLY agent allowed to scan the full codebase (PRD Section 3.2).
 """
 
 from typing import Dict, Any
 from .base_agent import BaseAgent
 from schemas.agent_output import AgentOutput, AgentType, RiskLevel
-from storage.s3_reader import S3Reader
 
 
 class FeatureExtractionAgent(BaseAgent):
     """
     Extracts deterministic features from code.
     NO LLM usage - purely static analysis.
+    
+    PRD Compliance (Section 3.2):
+    - ONLY agent allowed to scan full codebase
+    - Outputs structured features only
+    - No S3 access (receives code from orchestrator)
     """
     
     def __init__(self, config: Dict[str, Any] = None):
         super().__init__(AgentType.FEATURE_EXTRACTION, config)
-        self.s3_reader = S3Reader()
     
     def _validate_config(self) -> None:
         """Validate configuration"""
         # No special config needed for feature extraction
         pass
     
-    def analyze(self, s3_path: str, features: Dict[str, Any] = None) -> AgentOutput:
+    def analyze(self, code_files: Dict[str, str], features: Dict[str, Any] = None) -> AgentOutput:
         """
         Extract static features from code.
         
         Args:
-            s3_path: Path to code snapshot in S3
+            code_files: Dictionary of {filename: content} from orchestrator
             features: Ignored for this agent
         
         Returns:
             AgentOutput with extracted features
         """
         try:
-            # Read code from S3
-            code_files = self.s3_reader.read_code_snapshot(s3_path)
-            
             # Extract features (deterministic only)
             extracted_features = self._extract_features(code_files)
             
@@ -48,8 +49,7 @@ class FeatureExtractionAgent(BaseAgent):
                 risk_level=RiskLevel.NONE,  # Feature agent doesn't assess risk
                 metadata={
                     "features": extracted_features,
-                    "file_count": len(code_files),
-                    "s3_path": s3_path
+                    "file_count": len(code_files)
                 }
             )
         except Exception as e:

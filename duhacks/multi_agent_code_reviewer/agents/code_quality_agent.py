@@ -1,24 +1,29 @@
 """
 Code Quality Agent
 Metric-based quality assessment. Advisory only, non-blocking.
+Receives METRICS ONLY - no raw code (PRD Section 5.3).
 """
 
 from typing import Dict, Any, List
 from .base_agent import BaseAgent
 from schemas.agent_output import AgentOutput, AgentType, RiskLevel
-from storage.s3_reader import S3Reader
 
 
 class CodeQualityAgent(BaseAgent):
     """
     Evaluates code quality using metrics.
-    NO LLM usage - purely metric-based.
-    Advisory only - does not block.
+    
+    PRD Compliance (Section 5.3):
+    - Receives METRICS ONLY
+    - NO raw code
+    - NO snippets
+    - NO LLM usage
+    - NO S3 access
+    - Advisory only - does not block
     """
     
     def __init__(self, config: Dict[str, Any] = None):
         super().__init__(AgentType.CODE_QUALITY, config)
-        self.s3_reader = S3Reader()
         self.quality_thresholds = config.get("thresholds", {
             "max_function_length": 50,
             "max_file_length": 500,
@@ -35,22 +40,28 @@ class CodeQualityAgent(BaseAgent):
         """Validate configuration"""
         pass
     
-    def analyze(self, s3_path: str, features: Dict[str, Any] = None) -> AgentOutput:
+    def analyze(self, metrics: Dict[str, Any]) -> AgentOutput:
         """
-        Analyze code quality.
+        Analyze code quality from metrics.
         
         Args:
-            s3_path: Path to code in S3
-            features: Pre-extracted features
+            metrics: Quality metrics from routing policy (NO code)
         
         Returns:
-            AgentOutput with quality metrics
+            AgentOutput with quality assessment
+        
+        PRD Constraints:
+        - Metrics only, no code
+        - No LLM usage
+        - Advisory only
         """
         try:
-            code_files = self.s3_reader.read_code_snapshot(s3_path)
+            # Validate we received metrics, not code (PRD AC-1)
+            if "code" in metrics or "snippets" in metrics:
+                self.logger.error("❌ Quality agent received code/snippets - should only receive metrics")
             
-            quality_metrics = self._calculate_quality_metrics(code_files, features)
-            findings = self._generate_quality_findings(quality_metrics)
+            # Generate findings from metrics
+            findings = self._generate_quality_findings(metrics)
             
             # Quality is always advisory, confidence is high (metrics are deterministic)
             return self._create_output(
@@ -58,7 +69,7 @@ class CodeQualityAgent(BaseAgent):
                 findings=findings,
                 risk_level=RiskLevel.LOW,  # Quality issues are low risk
                 metadata={
-                    "quality_metrics": quality_metrics,
+                    "quality_metrics": metrics,
                     "advisory": True,
                     "blocking": False
                 }
@@ -128,48 +139,45 @@ class CodeQualityAgent(BaseAgent):
         
         return metrics
     
+    
     def _generate_quality_findings(self, metrics: Dict[str, Any]) -> List[Dict[str, Any]]:
         """
         Generate quality findings from metrics.
         
         Args:
-            metrics: Calculated metrics
+            metrics: Metrics from routing policy
         
         Returns:
             List of findings
         """
         findings = []
         
-        # Check comment ratio
-        if metrics["comment_ratio"] < self.quality_thresholds["min_comment_ratio"]:
-            findings.append({
-                "type": "low_documentation",
-                "severity": "info",
-                "description": f"Comment ratio {metrics['comment_ratio']:.2f} below threshold {self.quality_thresholds['min_comment_ratio']}"
-            })
-        
-        # Check file lengths
-        for long_file in metrics["long_files"]:
-            findings.append({
-                "type": "long_file",
-                "severity": "info",
-                "description": f"File {long_file['file']} has {long_file['loc']} lines"
-            })
-        
         # Check average function length
-        if metrics["average_function_length"] > self.quality_thresholds["max_function_length"]:
+        avg_func_length = metrics.get("avg_function_length", 0)
+        if avg_func_length > self.quality_thresholds["max_function_length"]:
             findings.append({
                 "type": "long_functions",
                 "severity": "info",
-                "description": f"Average function length {metrics['average_function_length']:.1f} exceeds threshold"
+                "description": f"Average function length {avg_func_length:.1f} exceeds threshold"
             })
         
         # Check complexity
-        if metrics["complexity_score"] > self.quality_thresholds["max_complexity"]:
+        max_nesting = metrics.get("max_nesting_depth", 0)
+        if max_nesting > self.quality_thresholds["max_complexity"]:
             findings.append({
                 "type": "high_complexity",
                 "severity": "warning",
-                "description": f"Code complexity score {metrics['complexity_score']} is high"
+                "description": f"Max nesting depth {max_nesting} is high"
+            })
+        
+        # Check total LoC
+        total_loc = metrics.get("total_loc", 0)
+        if total_loc > 10000:
+            findings.append({
+                "type": "large_codebase",
+                "severity": "info",
+                "description": f"Codebase has {total_loc} lines of code"
             })
         
         return findings
+

@@ -1,62 +1,75 @@
 """
 Security Analysis Agent
 Analyzes code for security risks using Gemini LLM.
+Receives ONLY curated features and bounded snippets (PRD Section 5.1).
 """
 
 from typing import Dict, Any, List
 from .base_agent import BaseAgent
 from schemas.agent_output import AgentOutput, AgentType, RiskLevel
-from storage.s3_reader import S3Reader
+from schemas.code_snippet import CodeSnippet
 from llm.gemini_client import GeminiClient
 
 
 class SecurityAnalysisAgent(BaseAgent):
     """
     Detects security vulnerabilities using LLM.
-    Uses bounded prompts and limited code snippets.
+    
+    PRD Compliance (Section 5.1):
+    - Receives structured features + max 3 security snippets
+    - Max 300-500 chars per snippet
+    - Snippets include source → sink patterns
+    - NO S3 access
+    - NO full files
     """
     
     def __init__(self, config: Dict[str, Any] = None):
         super().__init__(AgentType.SECURITY_ANALYSIS, config)
-        self.s3_reader = S3Reader()
         self.gemini_client = GeminiClient()
-        self.max_snippet_length = config.get("max_snippet_length", 500) if config else 500
     
     def _validate_config(self) -> None:
         """Validate configuration"""
-        if self.config.get("max_snippet_length", 500) < 100:
-            raise ValueError("max_snippet_length must be at least 100")
+        pass
     
-    def analyze(self, s3_path: str, features: Dict[str, Any] = None) -> AgentOutput:
+    def analyze(self, features: Dict[str, Any], snippets: List[CodeSnippet]) -> AgentOutput:
         """
         Analyze code for security risks.
         
         Args:
-            s3_path: Path to code snapshot in S3
-            features: Pre-extracted features from FeatureExtractionAgent
+            features: Curated security features from routing policy
+            snippets: Pre-extracted security-relevant snippets (max 3)
         
         Returns:
             AgentOutput with security findings
+        
+        PRD Constraints:
+        - Max 3 snippets
+        - Max 500 chars per snippet
+        - No direct code access
         """
         try:
-            # Read code from S3
-            code_files = self.s3_reader.read_code_snapshot(s3_path)
+            # Validate inputs (PRD AC-2: Bounded context enforcement)
+            if len(snippets) > 3:
+                self.logger.warning(f"⚠️ Received {len(snippets)} snippets, expected max 3")
+                snippets = snippets[:3]
             
-            # Identify high-risk files based on features
-            risk_files = self._identify_risk_files(code_files, features)
+            for snippet in snippets:
+                if snippet.get_size() > 500:
+                    self.logger.warning(
+                        f"⚠️ Snippet {snippet.get_location()} exceeds 500 chars ({snippet.get_size()})"
+                    )
             
-            # Analyze with LLM (bounded)
+            # Analyze snippets with LLM
             findings = []
             total_confidence = 0.0
             
-            for filename, content in risk_files.items():
-                snippet = self._extract_snippet(content)
-                result = self._analyze_snippet_with_llm(filename, snippet)
+            for snippet in snippets:
+                result = self._analyze_snippet_with_llm(snippet, features)
                 findings.extend(result["findings"])
                 total_confidence += result["confidence"]
             
             # Calculate overall confidence
-            avg_confidence = total_confidence / len(risk_files) if risk_files else 0.5
+            avg_confidence = total_confidence / len(snippets) if snippets else 0.5
             
             # Determine risk level
             risk_level = self._determine_risk_level(findings)
@@ -66,9 +79,8 @@ class SecurityAnalysisAgent(BaseAgent):
                 findings=findings,
                 risk_level=risk_level,
                 metadata={
-                    "files_analyzed": len(risk_files),
-                    "total_files": len(code_files),
-                    "s3_path": s3_path
+                    "snippets_analyzed": len(snippets),
+                    "features_used": list(features.keys())
                 }
             )
         except Exception as e:
@@ -81,56 +93,25 @@ class SecurityAnalysisAgent(BaseAgent):
                 error_message=str(e)
             )
     
-    def _identify_risk_files(self, code_files: Dict[str, str], features: Dict[str, Any]) -> Dict[str, str]:
-        """
-        Identify files that need security review.
-        
-        Args:
-            code_files: All code files
-            features: Extracted features
-        
-        Returns:
-            Dictionary of high-risk files
-        """
-        risk_keywords = ['auth', 'login', 'password', 'token', 'crypto', 'sql', 'exec', 'eval']
-        risk_files = {}
-        
-        for filename, content in code_files.items():
-            if any(keyword in filename.lower() or keyword in content.lower() for keyword in risk_keywords):
-                risk_files[filename] = content
-        
-        return risk_files
-    
-    def _extract_snippet(self, content: str) -> str:
-        """
-        Extract relevant code snippet for LLM analysis.
-        
-        Args:
-            content: Full file content
-        
-        Returns:
-            Truncated snippet
-        """
-        # Simple truncation - in production, use smarter extraction
-        return content[:self.max_snippet_length]
-    
-    def _analyze_snippet_with_llm(self, filename: str, snippet: str) -> Dict[str, Any]:
+    def _analyze_snippet_with_llm(self, snippet: CodeSnippet, features: Dict[str, Any]) -> Dict[str, Any]:
         """
         Analyze code snippet using Gemini LLM.
         
         Args:
-            filename: Name of file
-            snippet: Code snippet
+            snippet: CodeSnippet object with code and metadata
+            features: Security features for context
         
         Returns:
             Dictionary with findings and confidence
         """
         prompt = f"""
         Analyze this code snippet for SECURITY RISKS ONLY.
-        File: {filename}
+        Location: {snippet.get_location()}
+        Context: {snippet.context}
+        Tags: {', '.join(snippet.tags)}
         
         Code:
-        {snippet}
+        {snippet.content}
         
         Identify:
         1. SQL injection risks

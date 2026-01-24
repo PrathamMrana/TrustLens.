@@ -1,6 +1,7 @@
 """
 Orchestrator
 Coordinates all agents and manages the analysis workflow.
+Acts as a deterministic policy engine - decides what data each agent receives.
 """
 
 from typing import Dict, Any, List
@@ -14,13 +15,21 @@ from agents.code_quality_agent import CodeQualityAgent
 from agents.decision_agent import DecisionAgent
 from .conflict_resolver import ConflictResolver
 from .reliability import ReliabilityEngine
+from .routing_policy import RoutingPolicy
+from storage.s3_reader import S3Reader
 from utils.logger import Logger
 
 
 class Orchestrator:
     """
     Coordinates all agents and manages the analysis workflow.
-    Routes tasks, aggregates results, handles conflicts.
+    
+    Core Principle (PRD Section 3.1):
+    - Acts as a deterministic policy engine
+    - Decides what data each agent receives
+    - Passes only structured features and curated snippets
+    - NEVER calls LLM directly
+    - NEVER delegates input selection to agents
     """
     
     def __init__(self, config: Dict[str, Any] = None):
@@ -38,36 +47,57 @@ class Orchestrator:
         # Initialize support systems
         self.conflict_resolver = ConflictResolver()
         self.reliability_engine = ReliabilityEngine()
+        
+        # Initialize routing policy (PRD Section 6)
+        self.routing_policy = RoutingPolicy(config.get("routing_config"))
+        
+        # Initialize S3 reader (orchestrator reads S3, agents do NOT)
+        self.s3_reader = S3Reader()
     
     def analyze_repository(self, repo_url: str, s3_path: str) -> FinalReport:
-        """Analyze a code repository."""
+        """
+        Analyze a code repository.
+        
+        Flow (PRD Section 4):
+        1. Read code from S3 (orchestrator only)
+        2. Feature extraction (full scan)
+        3. Routing policy curates inputs
+        4. Agents receive explicit inputs (no S3 access)
+        """
         self.logger.info(f"Starting analysis for {repo_url}")
         
-        # Step 1: Feature Extraction
-        feature_output = self.feature_agent.analyze(s3_path)
+        # Step 1: Read code from S3 ONCE (centralized)
+        self.logger.info("📦 Reading code from S3...")
+        code_files = self.s3_reader.read_code_snapshot(s3_path)
+        self.logger.info(f"✅ Read {len(code_files)} files from S3")
+        
+        # Step 2: Feature Extraction (full scan - PRD Section 3.2)
+        self.logger.info("🔍 Extracting features...")
+        feature_output = self.feature_agent.analyze(code_files)
         if not feature_output.success:
             return self._create_error_report(repo_url, s3_path, "Feature extraction failed", feature_output.error_message)
         
-        features = feature_output.metadata.get("features", {})
+        features = feature_output.metadata
+        self.logger.info("✅ Feature extraction complete")
         
-        # Step 2: Run analysis agents
-        agent_outputs = self._run_analysis_agents(s3_path, features)
+        # Step 3: Run analysis agents with curated inputs
+        agent_outputs = self._run_analysis_agents(code_files, features)
         all_outputs = [feature_output] + agent_outputs
         
-        # Step 3: Detect conflicts
+        # Step 4: Detect conflicts
         conflicts = self.conflict_resolver.detect_conflicts(agent_outputs)
         
-        # Step 4: Aggregate confidence
+        # Step 5: Aggregate confidence
         overall_confidence = self.reliability_engine.aggregate_confidence(agent_outputs)
         
-        # Step 5: Check deferral
+        # Step 6: Check deferral
         should_defer, defer_reason = self.reliability_engine.should_defer(overall_confidence, conflicts)
         
-        # Step 6: Get decision
+        # Step 7: Get decision
         decision_output = self.decision_agent.recommend_action(agent_outputs, overall_confidence, conflicts)
         all_outputs.append(decision_output)
         
-        # Step 7: Generate report
+        # Step 8: Generate report
         risk_levels = [o.risk_level for o in agent_outputs if o.success]
         overall_risk = max(risk_levels) if risk_levels else RiskLevel.NONE
         
@@ -88,26 +118,50 @@ class Orchestrator:
         
         return report
     
-    def _run_analysis_agents(self, s3_path: str, features: Dict[str, Any]) -> List[AgentOutput]:
-        """Run all analysis agents."""
+    def _run_analysis_agents(self, code_files: Dict[str, str], features: Dict[str, Any]) -> List[AgentOutput]:
+        """
+        Run all analysis agents with curated inputs.
+        
+        PRD Compliance:
+        - Routing policy curates inputs (PRD Section 6)
+        - Agents receive explicit inputs only (PRD Section 7)
+        - No agent accesses S3 directly (PRD AC-1)
+        """
         outputs = []
         
+        # Security Agent (PRD Section 5.1)
         try:
-            outputs.append(self.security_agent.analyze(s3_path, features))
+            self.logger.info("🔒 Running Security Agent...")
+            security_features, security_snippets = self.routing_policy.route_for_security_agent(
+                code_files, features
+            )
+            outputs.append(self.security_agent.analyze(security_features, security_snippets))
+            self.logger.info("✅ Security analysis complete")
         except Exception as e:
             self.logger.error(f"Security agent failed: {e}")
         
+        # Logic Agent (PRD Section 5.2)
         try:
-            outputs.append(self.logic_agent.analyze(s3_path, features))
+            self.logger.info("🧠 Running Logic Agent...")
+            logic_features, logic_snippets = self.routing_policy.route_for_logic_agent(
+                code_files, features
+            )
+            outputs.append(self.logic_agent.analyze(logic_features, logic_snippets))
+            self.logger.info("✅ Logic analysis complete")
         except Exception as e:
             self.logger.error(f"Logic agent failed: {e}")
         
+        # Code Quality Agent (PRD Section 5.3 - metrics only, no code)
         try:
-            outputs.append(self.quality_agent.analyze(s3_path, features))
+            self.logger.info("📊 Running Code Quality Agent...")
+            quality_metrics = self.routing_policy.route_for_quality_agent(features)
+            outputs.append(self.quality_agent.analyze(quality_metrics))
+            self.logger.info("✅ Quality analysis complete")
         except Exception as e:
             self.logger.error(f"Quality agent failed: {e}")
         
         return outputs
+
     
     def _create_error_report(self, repo_url: str, s3_path: str, error_type: str, error_message: str) -> FinalReport:
         """Create error report when analysis fails."""

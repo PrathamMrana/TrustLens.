@@ -1,61 +1,73 @@
 """
 Logic Analysis Agent
 Analyzes code logic and correctness using Gemini LLM.
+Receives ONLY logic-relevant snippets (PRD Section 5.2).
 """
 
 from typing import Dict, Any, List
 from .base_agent import BaseAgent
 from schemas.agent_output import AgentOutput, AgentType, RiskLevel
-from storage.s3_reader import S3Reader
+from schemas.code_snippet import CodeSnippet
 from llm.gemini_client import GeminiClient
 
 
 class LogicAnalysisAgent(BaseAgent):
     """
     Analyzes code logic for correctness.
-    Uses LLM for logic validation only.
-    Does NOT check security or quality.
+    
+    PRD Compliance (Section 5.2):
+    - Receives logic features + max 3 logic snippets
+    - Only loops, conditionals, deeply nested code
+    - MUST NOT receive security code (SQL, auth, etc.)
+    - NO S3 access
     """
     
     def __init__(self, config: Dict[str, Any] = None):
         super().__init__(AgentType.LOGIC_ANALYSIS, config)
-        self.s3_reader = S3Reader()
         self.gemini_client = GeminiClient()
-        self.max_snippet_length = config.get("max_snippet_length", 600) if config else 600
     
     def _validate_config(self) -> None:
         """Validate configuration"""
         pass
     
-    def analyze(self, s3_path: str, features: Dict[str, Any] = None) -> AgentOutput:
+    def analyze(self, features: Dict[str, Any], snippets: List[CodeSnippet]) -> AgentOutput:
         """
         Analyze code logic.
         
         Args:
-            s3_path: Path to code snapshot in S3
-            features: Pre-extracted features
+            features: Curated logic features from routing policy
+            snippets: Pre-extracted logic-relevant snippets (max 3)
         
         Returns:
             AgentOutput with logic analysis
+        
+        PRD Constraints:
+        - Max 3 snippets
+        - Only logic-heavy code (no security patterns)
         """
         try:
-            # Read code from S3
-            code_files = self.s3_reader.read_code_snapshot(s3_path)
+            # Validate inputs (PRD AC-2)
+            if len(snippets) > 3:
+                self.logger.warning(f"⚠️ Received {len(snippets)} snippets, expected max 3")
+                snippets = snippets[:3]
             
-            # Identify complex logic files
-            logic_files = self._identify_logic_files(code_files, features)
+            # Verify no security snippets (PRD Section 5.2)
+            for snippet in snippets:
+                if any(tag in ['sql', 'auth', 'crypto'] for tag in snippet.tags):
+                    self.logger.error(
+                        f"❌ Logic agent received security snippet: {snippet.get_location()}"
+                    )
             
             # Analyze with LLM
             findings = []
             total_confidence = 0.0
             
-            for filename, content in logic_files.items():
-                snippet = content[:self.max_snippet_length]
-                result = self._analyze_logic_with_llm(filename, snippet, features)
+            for snippet in snippets:
+                result = self._analyze_logic_with_llm(snippet, features)
                 findings.extend(result["findings"])
                 total_confidence += result["confidence"]
             
-            avg_confidence = total_confidence / len(logic_files) if logic_files else 0.6
+            avg_confidence = total_confidence / len(snippets) if snippets else 0.6
             
             # Logic issues map to risk levels
             risk_level = self._determine_risk_from_logic(findings)
@@ -65,8 +77,8 @@ class LogicAnalysisAgent(BaseAgent):
                 findings=findings,
                 risk_level=risk_level,
                 metadata={
-                    "files_analyzed": len(logic_files),
-                    "total_files": len(code_files)
+                    "snippets_analyzed": len(snippets),
+                    "features_used": list(features.keys())
                 }
             )
         except Exception as e:
@@ -79,52 +91,25 @@ class LogicAnalysisAgent(BaseAgent):
                 error_message=str(e)
             )
     
-    def _identify_logic_files(self, code_files: Dict[str, str], features: Dict[str, Any]) -> Dict[str, str]:
-        """
-        Identify files with complex logic.
-        
-        Args:
-            code_files: All code files
-            features: Extracted features
-        
-        Returns:
-            Files requiring logic analysis
-        """
-        complex_files = {}
-        
-        # Use features to identify complex files
-        if features and "complexity_indicators" in features.get("features", {}):
-            complexity = features["features"]["complexity_indicators"]
-            threshold = 3  # nesting depth threshold
-            
-            for filename, content in code_files.items():
-                # Check for control flow keywords
-                if ('if ' in content or 'for ' in content or 'while ' in content):
-                    complex_files[filename] = content
-        else:
-            # Fallback: analyze all files
-            complex_files = code_files
-        
-        return complex_files
-    
-    def _analyze_logic_with_llm(self, filename: str, snippet: str, features: Dict[str, Any]) -> Dict[str, Any]:
+    def _analyze_logic_with_llm(self, snippet: CodeSnippet, features: Dict[str, Any]) -> Dict[str, Any]:
         """
         Analyze logic using LLM.
         
         Args:
-            filename: File name
-            snippet: Code snippet
-            features: Context features
+            snippet: CodeSnippet object with code and metadata
+            features: Logic features for context
         
         Returns:
             Analysis results
         """
         prompt = f"""
         Analyze this code for LOGIC CORRECTNESS ONLY.
-        File: {filename}
+        Location: {snippet.get_location()}
+        Context: {snippet.context}
+        Nesting: {[tag for tag in snippet.tags if 'nesting' in tag]}
         
         Code:
-        {snippet}
+        {snippet.content}
         
         Check for:
         1. Infinite loops
