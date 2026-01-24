@@ -1,6 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { ShieldCheck, ShieldAlert, FileSearch, Lock } from 'lucide-react';
+import { ShieldCheck, ShieldAlert, FileSearch, Lock, ArrowRight } from 'lucide-react';
+import { Link } from 'react-router-dom';
 
 const DECISION_CONFIG = {
     SAFE: {
@@ -63,16 +64,20 @@ const FinalDecisionPanel = ({ decision }) => {
                     {config.description}
                 </p>
 
-                {decision === 'MANUAL_REVIEW' && (
-                    <div className="mt-8 flex gap-4">
-                        <button className="px-6 py-2.5 rounded-lg bg-surface border border-border text-sm font-medium text-primary hover:bg-secondary transition-colors shadow-soft">
-                            View Divergence Map
-                        </button>
-                        <button className="px-6 py-2.5 rounded-lg bg-uncertainty hover:bg-purple-600 text-white text-sm font-medium transition-colors shadow-glow-uncertainty">
+                <div className="mt-8 flex flex-wrap justify-center gap-4">
+                    <Link
+                        to="/report"
+                        className="flex items-center gap-2 px-8 py-3 rounded-lg bg-blue-600 hover:bg-blue-500 text-white font-bold transition-all shadow-lg shadow-blue-500/20"
+                    >
+                        View Full Audit Report <ArrowRight className="w-4 h-4" />
+                    </Link>
+
+                    {decision === 'MANUAL_REVIEW' && (
+                        <button className="px-6 py-3 rounded-lg bg-surface border border-border text-sm font-medium text-primary hover:bg-secondary transition-colors">
                             Start Human Review
                         </button>
-                    </div>
-                )}
+                    )}
+                </div>
             </div>
         </motion.div>
     );

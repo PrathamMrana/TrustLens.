@@ -143,40 +143,36 @@ class CodeQualityAgent(BaseAgent):
     def _generate_quality_findings(self, metrics: Dict[str, Any]) -> List[Dict[str, Any]]:
         """
         Generate quality findings from metrics.
-        
-        Args:
-            metrics: Metrics from routing policy
-        
-        Returns:
-            List of findings
         """
         findings = []
         
-        # Check average function length
-        avg_func_length = metrics.get("avg_function_length", 0)
-        if avg_func_length > self.quality_thresholds["max_function_length"]:
+        # Check for long files
+        for long_file in metrics.get("long_files", []):
             findings.append({
-                "type": "long_functions",
+                "type": "long_file",
                 "severity": "info",
-                "description": f"Average function length {avg_func_length:.1f} exceeds threshold"
+                "description": f"File exceeds 200 lines ({long_file['loc']} lines)",
+                "filename": long_file['file'],
+                "line_number": 1
             })
-        
-        # Check complexity
-        max_nesting = metrics.get("max_nesting_depth", 0)
-        if max_nesting > self.quality_thresholds["max_complexity"]:
+
+        # Check for high nesting locations
+        for loc in metrics.get("high_nesting_locations", []):
             findings.append({
                 "type": "high_complexity",
                 "severity": "warning",
-                "description": f"Max nesting depth {max_nesting} is high"
+                "description": f"Deep nesting detected (depth {loc['depth']})",
+                "filename": loc['file'],
+                "line_number": loc['line']
             })
-        
-        # Check total LoC
-        total_loc = metrics.get("total_loc", 0)
-        if total_loc > 10000:
+
+        # Summary findings
+        if not findings:
+            total_loc = metrics.get("total_loc", 0)
             findings.append({
-                "type": "large_codebase",
+                "type": "quality_summary",
                 "severity": "info",
-                "description": f"Codebase has {total_loc} lines of code"
+                "description": f"Overall codebase size: {total_loc} lines. Structure appears clean."
             })
         
         return findings

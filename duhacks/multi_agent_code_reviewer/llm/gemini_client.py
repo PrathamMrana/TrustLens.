@@ -16,33 +16,39 @@ class GeminiClient:
     def __init__(self, api_key: str = None, model: str = "gemini-1.5-flash"):
         """
         Initialize Gemini client.
-        
-        Args:
-            api_key: Google API key (DO NOT hardcode in production)
-            model: Gemini model to use
         """
-        self.api_key = api_key or "PLACEHOLDER_API_KEY"
-        self.model = model
+        import os
+        self.api_key = api_key or os.environ.get("GEMINI_API_KEY") or "PLACEHOLDER_API_KEY"
+        self.model_name = model
         
-        # In production: initialize actual Gemini client
-        # import google.generativeai as genai
-        # genai.configure(api_key=self.api_key)
-        # self.client = genai.GenerativeModel(model)
-        self.client = None
+        try:
+            import google.generativeai as genai
+            genai.configure(api_key=self.api_key)
+            self.model = genai.GenerativeModel(model)
+            self.client_ready = True
+        except Exception:
+            self.model = None
+            self.client_ready = False
     
     def generate(self, prompt: str, max_tokens: int = 1000) -> Dict[str, Any]:
         """
         Generate response from Gemini.
-        
-        Args:
-            prompt: Input prompt
-            max_tokens: Maximum tokens in response
-        
-        Returns:
-            Parsed response dictionary
         """
-        # For skeleton: return mock response
-        # In production: call actual Gemini API
+        if self.client_ready and self.api_key != "PLACEHOLDER_API_KEY":
+            try:
+                response = self.model.generate_content(
+                    prompt,
+                    generation_config={
+                        'max_output_tokens': max_tokens,
+                        'temperature': 0.1, # Lower temperature for stable JSON
+                    }
+                )
+                return self.parse_json_response(response.text)
+            except Exception as e:
+                import logging
+                logging.error(f"Gemini API call failed: {e}")
+                return self._mock_generate(prompt)
+        
         return self._mock_generate(prompt)
     
     def _call_gemini_api(self, prompt: str, max_tokens: int) -> str:

@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Shield, Brain, Zap, Search, ChevronRight, ChevronDown } from 'lucide-react';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
 const RISK_CONFIG = {
     high: {
@@ -108,17 +110,43 @@ const AgentCard = ({ agent, index }) => {
                         className="overflow-hidden"
                     >
                         <div className="p-5 pt-0 border-t border-white/5">
-                            <div className="pt-4 space-y-3">
-                                <div className="flex items-start gap-3 text-xs text-text-secondary">
-                                    <span className={`w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 ${config.fill}`} />
-                                    <p className="leading-relaxed">
-                                        Full analysis reasoning: {agent.summary}
-                                    </p>
-                                </div>
-                                <div className="flex items-center justify-between text-xs text-muted font-mono pt-2">
-                                    <span>FINDINGS: {agent.findingsCount}</span>
-                                    <span>MODEL: v4.2-ENT</span>
-                                </div>
+                            <div className="pt-4 space-y-4">
+                                {agent.findings && agent.findings.map((f, i) => (
+                                    <div key={i} className="space-y-2 p-3 rounded-lg bg-black/20 border border-white/5">
+                                        <div className="flex justify-between items-center text-[10px] font-mono text-muted mb-1">
+                                            <span className="text-secondary uppercase">{f.type || 'Detection'}</span>
+                                            <span>{f.filename}:{f.line_number}</span>
+                                        </div>
+                                        <p className="text-xs text-text-secondary leading-relaxed">
+                                            {f.description}
+                                        </p>
+                                        {f.code && (
+                                            <div className="mt-2 rounded border border-white/5 overflow-hidden">
+                                                <SyntaxHighlighter
+                                                    language="javascript"
+                                                    style={vscDarkPlus}
+                                                    customStyle={{
+                                                        margin: 0,
+                                                        padding: '0.75rem',
+                                                        fontSize: '0.7rem',
+                                                        background: '#0a0c10'
+                                                    }}
+                                                >
+                                                    {f.code}
+                                                </SyntaxHighlighter>
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+
+                                {!agent.findings || agent.findings.length === 0 && (
+                                    <div className="flex items-start gap-3 text-xs text-text-secondary">
+                                        <span className={`w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0 ${config.fill}`} />
+                                        <p className="leading-relaxed">
+                                            Summary verdict: {agent.summary}
+                                        </p>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </motion.div>

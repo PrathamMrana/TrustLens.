@@ -1,11 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowRight, Shield, Zap, Activity, Users, Lock, ChevronRight, Play, AlertTriangle, CheckCircle2, FileSearch, Scale } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import HowItWorksModal from '../components/HowItWorksModal';
 
 // --- Components ---
 
-const HeroSection = () => (
+const HeroSection = ({ onOpenModal }) => (
     <div className="relative min-h-[90vh] flex flex-col items-center justify-center text-center px-4 overflow-hidden">
         {/* Animated Background */}
         <div className="absolute inset-0 z-0">
@@ -49,9 +50,12 @@ const HeroSection = () => (
                         Analyze with Confidence <ArrowRight className="w-4 h-4 ml-1 transition-transform group-hover:translate-x-1" />
                     </span>
                 </Link>
-                <Link to="#how-it-works" className="px-8 py-4 rounded-lg border border-border hover:bg-surface text-text-secondary hover:text-white transition-colors">
+                <button
+                    onClick={onOpenModal}
+                    className="px-8 py-4 rounded-lg border border-border hover:bg-surface text-text-secondary hover:text-white transition-colors"
+                >
                     See How It Works
-                </Link>
+                </button>
             </motion.div>
         </div>
     </div>
@@ -210,9 +214,11 @@ const TrustBadgeSection = () => (
 );
 
 const LandingPage = () => {
+    const [isModalOpen, setIsModalOpen] = useState(false);
+
     return (
         <div className="min-h-screen bg-background text-text-primary selection:bg-blue-500/30">
-            <HeroSection />
+            <HeroSection onOpenModal={() => setIsModalOpen(true)} />
             <IntelligenceOverview />
             <ComparisonSection />
             <ConfidenceSection />
@@ -228,6 +234,12 @@ const LandingPage = () => {
                     </Link>
                 </div>
             </section>
+
+            {/* How It Works Modal */}
+            <HowItWorksModal
+                isOpen={isModalOpen}
+                onClose={() => setIsModalOpen(false)}
+            />
         </div>
     );
 };

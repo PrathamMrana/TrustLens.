@@ -31,21 +31,35 @@ class FeatureExtractionAgent(BaseAgent):
     def analyze(self, code_files: Dict[str, str], features: Dict[str, Any] = None) -> AgentOutput:
         """
         Extract static features from code.
-        
-        Args:
-            code_files: Dictionary of {filename: content} from orchestrator
-            features: Ignored for this agent
-        
-        Returns:
-            AgentOutput with extracted features
         """
         try:
             # Extract features (deterministic only)
             extracted_features = self._extract_features(code_files)
             
+            # Generate summary findings for the deep dive
+            summary_findings = []
+            for lang in extracted_features.get("languages", []):
+                file_count = extracted_features.get("file_extensions", {}).get(lang, 0)
+                summary_findings.append({
+                    "type": "language_detection",
+                    "severity": "info",
+                    "description": f"Identified core logic in {lang.upper()} ({file_count} files)",
+                    "filename": "Global Scan",
+                    "line_number": 0
+                })
+            
+            if extracted_features.get("total_loc", 0) > 500:
+                summary_findings.append({
+                    "type": "codebase_size",
+                    "severity": "info",
+                    "description": f"Overall codebase contains {extracted_features.get('total_loc')} lines of active code.",
+                    "filename": "Global Scan",
+                    "line_number": 0
+                })
+
             return self._create_output(
                 confidence=1.0,  # Feature extraction is deterministic
-                findings=[],  # Features go in metadata
+                findings=summary_findings,
                 risk_level=RiskLevel.NONE,  # Feature agent doesn't assess risk
                 metadata={
                     "features": extracted_features,
@@ -80,8 +94,10 @@ class FeatureExtractionAgent(BaseAgent):
             "complexity_indicators": {
                 "nested_depth": 0,
                 "function_count": 0,
-                "class_count": 0
-            }
+                "class_count": 0,
+                "high_nesting_locations": [] # List of {file, line, depth}
+            },
+            "long_files": [] # List of {file, loc}
         }
         
         total_size = 0
@@ -91,6 +107,9 @@ class FeatureExtractionAgent(BaseAgent):
             loc = len([l for l in lines if l.strip()])
             features["total_loc"] += loc
             
+            if loc > 200: # Threshold for 'long file' in feature extraction
+                features["long_files"].append({"file": filename, "loc": loc})
+            
             # Detect language by extension
             ext = filename.split('.')[-1] if '.' in filename else 'unknown'
             features["languages"].add(ext)
@@ -99,10 +118,22 @@ class FeatureExtractionAgent(BaseAgent):
             # File size
             total_size += len(content)
             
-            # Simple complexity indicators (placeholder logic)
+            # Calculate nesting and track high nesting areas
+            file_max_depth = 0
+            for i, line in enumerate(lines):
+                if line.strip():
+                    depth = (len(line) - len(line.lstrip())) // 4
+                    if depth > 4: # Threshold for 'high nesting' tracking
+                        features["complexity_indicators"]["high_nesting_locations"].append({
+                            "file": filename,
+                            "line": i + 1,
+                            "depth": depth
+                        })
+                    file_max_depth = max(file_max_depth, depth)
+
             features["complexity_indicators"]["nested_depth"] = max(
                 features["complexity_indicators"]["nested_depth"],
-                self._calculate_nesting_depth(content)
+                file_max_depth
             )
             features["complexity_indicators"]["function_count"] += content.count('def ') + content.count('function ')
             features["complexity_indicators"]["class_count"] += content.count('class ')

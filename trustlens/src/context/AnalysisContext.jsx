@@ -215,13 +215,22 @@ export const AnalysisProvider = ({ children }) => {
             setReliability(reliabilityData);
 
             // Map agent results for the frontend components
-            const mappedResults = (agentsData.agents || []).map(a => ({
-                name: a.agent.replace('AnalysisAgent', ' Agent'),
-                risk: a.risk_level,
-                confidence: Math.round(a.confidence * 100),
-                findingsCount: a.findings_count,
-                summary: getAgentSummary(a, reportData)
-            }));
+            const mappedResults = (agentsData.agents || []).map(a => {
+                const agentFindings = getDetailedFindings(a.agent, reportData);
+                const prettyName = a.agent
+                    .split('_')
+                    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                    .join(' ');
+
+                return {
+                    name: prettyName,
+                    risk: a.risk_level,
+                    confidence: Math.round(a.confidence * 100),
+                    findingsCount: a.findings_count,
+                    summary: getAgentSummary(a.agent, reportData),
+                    findings: agentFindings
+                };
+            });
 
             setResults(mappedResults);
             setStatus('COMPLETE');
@@ -232,15 +241,31 @@ export const AnalysisProvider = ({ children }) => {
         }
     };
 
-    const getAgentSummary = (agent, report) => {
-        // Extract relevant findings from the main report for this agent
-        if (agent.agent.includes('Security')) {
-            return report.security_findings?.[0]?.description || "Security analysis complete.";
+    const getDetailedFindings = (agentId, report) => {
+        const id = agentId.toLowerCase();
+        if (id.includes('security')) return report.security_findings || [];
+        if (id.includes('logic')) return report.logic_findings || [];
+        if (id.includes('quality')) return report.quality_summary?.findings || [];
+        if (id.includes('feature')) return report.feature_findings || []; // We'll add this to backend
+        return [];
+    };
+
+    const getAgentSummary = (agentId, report) => {
+        const id = agentId.toLowerCase();
+        if (id.includes('security')) {
+            return report.security_findings?.[0]?.description || "No major security vulnerabilities detected.";
         }
-        if (agent.agent.includes('Logic')) {
-            return report.logic_findings?.[0]?.description || "Logic analysis complete.";
+        if (id.includes('logic')) {
+            return report.logic_findings?.[0]?.description || "Code logic appears consistent with defined patterns.";
         }
-        return `Analysis results for ${agent.agent}.`;
+        if (id.includes('quality')) {
+            const score = Math.round(report.quality_summary?.quality_score * 100) || 0;
+            return `Code quality score: ${score}%. ${report.quality_summary?.findings?.[0]?.description || "Maintainability is within expected parameters."}`;
+        }
+        if (id.includes('feature')) {
+            return `Identified ${report.quality_summary?.metrics?.total_loc || 'several'} lines across ${report.quality_summary?.metrics?.languages?.join(', ') || 'multiple'} files.`;
+        }
+        return `Detailed analysis complete for ${agentId}.`;
     };
 
     const resetAnalysis = () => {

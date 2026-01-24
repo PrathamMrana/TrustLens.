@@ -341,6 +341,7 @@ class CodeReviewController:
             # Extract findings by agent type
             "security_findings": self._extract_findings_by_type(raw_report, "security_analysis"),
             "logic_findings": self._extract_findings_by_type(raw_report, "logic_analysis"),
+            "feature_findings": self._extract_findings_by_type(raw_report, "feature_extraction"),
             "quality_summary": self._extract_quality_summary(raw_report),
             
             # System reasoning
@@ -519,6 +520,7 @@ class CodeReviewController:
                 return {
                     "quality_score": output.get("confidence", 0.0),
                     "issues": [f.get("type") for f in output.get("findings", [])],
+                    "findings": output.get("findings", []),
                     "metrics": metadata.get("quality_metrics", {})
                 }
         return {}

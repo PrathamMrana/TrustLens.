@@ -134,8 +134,18 @@ class LogicAnalysisAgent(BaseAgent):
         
         llm_response = self.gemini_client.generate(prompt)
         
+        findings = llm_response.get("findings", [])
+        
+        # Inject snippet info into each finding (AC-3: Explainability)
+        for finding in findings:
+            finding["type"] = finding.get("issue", "Logic Issue") # Map for frontend consistency
+            finding["location"] = snippet.get_location()
+            finding["filename"] = snippet.filename
+            finding["line_number"] = snippet.start_line
+            finding["code"] = snippet.content
+            
         return {
-            "findings": llm_response.get("findings", []),
+            "findings": findings,
             "confidence": llm_response.get("confidence", 0.6)
         }
     

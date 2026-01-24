@@ -203,6 +203,8 @@ class RoutingPolicy:
             "avg_file_size": raw.get("average_file_size", 0),
             "function_count": complexity.get("function_count", 0),
             "class_count": complexity.get("class_count", 0),
+            "long_files": raw.get("long_files", []),
+            "high_nesting_locations": complexity.get("high_nesting_locations", [])
         }
     
     def _extract_security_snippets(

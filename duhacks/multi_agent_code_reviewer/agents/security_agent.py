@@ -131,12 +131,19 @@ class SecurityAnalysisAgent(BaseAgent):
         }}
         """
         
-        # Call LLM (mocked for skeleton)
         llm_response = self.gemini_client.generate(prompt)
         
-        # Parse response (placeholder)
+        findings = llm_response.get("findings", [])
+        
+        # Inject snippet info into each finding (AC-3: Explainability)
+        for finding in findings:
+            finding["location"] = snippet.get_location()
+            finding["filename"] = snippet.filename
+            finding["line_number"] = snippet.start_line
+            finding["code"] = snippet.content
+        
         return {
-            "findings": llm_response.get("findings", []),
+            "findings": findings,
             "confidence": llm_response.get("confidence", 0.7)
         }
     
