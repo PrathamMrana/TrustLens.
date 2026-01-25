@@ -5,6 +5,8 @@ TrustLens is a next-generation code analysis platform that moves beyond traditio
 
 By treating code review as a multi-perspective problem, TrustLens provides explainable, high-confidence audits that identify subtle vulnerabilities and logical contradictions that standard static analysis tools and generic LLMs often miss.
 
+Live Demo:https://trustlens-frontend-1.onrender.com/
+
 ---
 
 ## 🏛️ System Design & Architecture
