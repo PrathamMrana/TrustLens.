@@ -167,7 +167,8 @@ class CodeReviewController:
                 "branch": branch,
                 "message": f"Repository cloned and uploaded successfully",
                 "statistics": workflow_result.get("statistics", {}),
-                "workflow_status": workflow_result["status"]
+                "workflow_status": workflow_result["status"],
+                "repo_info": workflow_result.get("repo_info", {})  # Include repository metadata
             }
         
         except Exception as e:

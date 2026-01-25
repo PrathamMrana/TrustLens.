@@ -2,28 +2,29 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Search, Code, ArrowRight, FileCode, CheckCircle2, Lock } from 'lucide-react';
 import clsx from 'clsx';
+import { APP_CONFIG } from '../utils/constants';
 
 const InputPanel = ({ onStartAnalysis, isAnalyzing }) => {
     const [input, setInput] = useState('');
     const [ingestionState, setIngestionState] = useState('idle'); // idle, focusing, ingesting, confirmed
+    const [repoMetadata, setRepoMetadata] = useState(null); // Store real repo data
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (input.trim()) {
             setIngestionState('ingesting');
 
-            // 4-Stage Animation delay simulation
-            // Stage 1: "Capturing..."
-            await new Promise(r => setTimeout(r, 800));
+            // Show loading state
+            setRepoMetadata({ loading: true });
 
-            // Stage 2: "Extracting metadata..." (Internal state change could happen here)
-            await new Promise(r => setTimeout(r, 800));
+            // Stage 1: "Capturing..." with loading message
+            await new Promise(r => setTimeout(r, 1200));
 
-            // Stage 3: Confirmed
+            // Stage 2: Confirmed
             setIngestionState('confirmed');
             await new Promise(r => setTimeout(r, 800));
 
-            // Hand off to parent
+            // Hand off to parent - AnalysisContext will handle the API call
             onStartAnalysis(input);
         }
     };
@@ -101,7 +102,9 @@ const InputPanel = ({ onStartAnalysis, isAnalyzing }) => {
                                                 ))}
                                             </div>
                                             <h3 className="text-primary font-medium mb-1">Capturing code snapshot...</h3>
-                                            <p className="text-xs text-muted font-mono">Indexing 24 files • 1,420 lines</p>
+                                            <p className="text-xs text-muted font-mono">
+                                                Preparing repository for analysis...
+                                            </p>
                                         </>
                                     )}
 
@@ -141,3 +144,4 @@ const InputPanel = ({ onStartAnalysis, isAnalyzing }) => {
 };
 
 export default InputPanel;
+

@@ -8,6 +8,7 @@ import KeyInsights from '../components/KeyInsights';
 import OverallOutcomePanel from '../components/OverallOutcomePanel';
 import ConflictPanel from '../components/ConflictPanel';
 import FinalDecisionPanel from '../components/FinalDecisionPanel';
+import RepoMetadataCard from '../components/RepoMetadataCard';
 import { useAnalysis } from '../context/AnalysisContext';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -20,7 +21,8 @@ const SessionPage = () => {
         completedMeasurements,
         results,
         overall,
-        analysisId
+        analysisId,
+        repoMetadata
     } = useAnalysis();
 
     // Redirect logic
@@ -58,6 +60,11 @@ const SessionPage = () => {
 
                     {/* Progressive Agent Cards */}
                     <div className="space-y-6">
+                        {/* Repository Metadata - Show when analysis starts */}
+                        {repoMetadata && (
+                            <RepoMetadataCard metadata={repoMetadata} />
+                        )}
+
                         {/* Overall Outcome Panel - Top of results */}
                         {status === 'COMPLETE' && (
                             <OverallOutcomePanel overall={overall} />

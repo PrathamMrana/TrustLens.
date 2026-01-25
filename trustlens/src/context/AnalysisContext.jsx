@@ -18,6 +18,7 @@ export const AnalysisProvider = ({ children }) => {
     const [report, setReport] = useState(null);
     const [reliability, setReliability] = useState(null);
     const [agents, setAgents] = useState([]);
+    const [repoMetadata, setRepoMetadata] = useState(null); // Store repository metadata
 
     const pollingIntervalRef = useRef(null);
     const progressIntervalRef = useRef(null);
@@ -112,6 +113,16 @@ export const AnalysisProvider = ({ children }) => {
                 const data = await response.json();
                 if (!response.ok) throw new Error(data.message || 'GitHub clone failed');
                 currentAnalysisId = data.analysis_id;
+
+                // Store repository metadata
+                if (data.repo_info) {
+                    setRepoMetadata({
+                        files: data.repo_info.file_count || 0,
+                        lines: data.repo_info.total_loc || 0,
+                        languages: data.repo_info.languages || [],
+                        repoName: data.repo_info.repo_name || 'Unknown Repository'
+                    });
+                }
             } else {
                 // If not a URL, treat as direct code snippet
                 const response = await fetch(`${APP_CONFIG.API_BASE_URL}/repos/snippet`, {
@@ -302,6 +313,7 @@ export const AnalysisProvider = ({ children }) => {
             report,
             reliability,
             agents,
+            repoMetadata, // Expose repository metadata
             startAnalysis,
             resetAnalysis
         }}>

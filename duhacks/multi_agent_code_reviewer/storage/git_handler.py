@@ -15,8 +15,23 @@ try:
     import git
     from git import Repo
     GIT_AVAILABLE = True
+    
+    class GitProgress(git.RemoteProgress):
+        """Progress handler for Git operations"""
+        
+        def __init__(self, logger: Logger):
+            super().__init__()
+            self.logger = logger
+        
+        def update(self, op_code, cur_count, max_count=None, message=''):
+            """Update progress"""
+            if message:
+                self.logger.info(f"Git: {message}")
+                
 except ImportError:
     GIT_AVAILABLE = False
+    GitProgress = None  # Define as None when git is not available
+
 
 
 class GitHandler:
@@ -203,8 +218,61 @@ class GitHandler:
             # Count commits
             commit_count = sum(1 for _ in repo.iter_commits(repo.active_branch))
             
-            # Count files
-            file_count = sum([len(files) for _, _, files in os.walk(repo_path)])
+            # Count files and lines of code
+            file_count = 0
+            total_loc = 0
+            language_extensions = {}
+            
+            for root, _, files in os.walk(repo_path):
+                # Skip .git directory
+                if '.git' in root:
+                    continue
+                    
+                for file in files:
+                    file_count += 1
+                    file_path = os.path.join(root, file)
+                    
+                    # Count lines of code
+                    try:
+                        with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                            lines = len(f.readlines())
+                            total_loc += lines
+                    except:
+                        pass
+                    
+                    # Track language by extension
+                    ext = os.path.splitext(file)[1].lower()
+                    if ext:
+                        language_extensions[ext] = language_extensions.get(ext, 0) + 1
+            
+            # Map extensions to language names
+            ext_to_lang = {
+                '.py': 'Python', '.js': 'JavaScript', '.ts': 'TypeScript',
+                '.java': 'Java', '.cpp': 'C++', '.c': 'C', '.cs': 'C#',
+                '.go': 'Go', '.rb': 'Ruby', '.php': 'PHP', '.swift': 'Swift',
+                '.kt': 'Kotlin', '.rs': 'Rust', '.html': 'HTML', '.css': 'CSS',
+                '.jsx': 'React', '.tsx': 'TypeScript React', '.vue': 'Vue',
+                '.json': 'JSON', '.xml': 'XML', '.yaml': 'YAML', '.yml': 'YAML',
+                '.md': 'Markdown', '.sh': 'Shell', '.sql': 'SQL'
+            }
+            
+            # Get top languages
+            languages = []
+            sorted_exts = sorted(language_extensions.items(), key=lambda x: x[1], reverse=True)
+            for ext, count in sorted_exts[:5]:  # Top 5 languages
+                lang_name = ext_to_lang.get(ext, ext[1:].upper() if ext else 'Unknown')
+                languages.append(lang_name)
+            
+            # Get repository name from remote URL or path
+            repo_name = "Unknown Repository"
+            try:
+                if repo.remote():
+                    remote_url = repo.remote().url
+                    repo_name = remote_url.rstrip('/').split('/')[-1].replace('.git', '')
+                else:
+                    repo_name = os.path.basename(repo_path)
+            except:
+                repo_name = os.path.basename(repo_path)
             
             # Get commit info
             latest_commit = repo.head.commit
@@ -212,6 +280,9 @@ class GitHandler:
             return {
                 "commit_count": commit_count,
                 "file_count": file_count,
+                "total_loc": total_loc,
+                "languages": languages,
+                "repo_name": repo_name,
                 "latest_commit": latest_commit.hexsha[:7],
                 "latest_author": latest_commit.author.name,
                 "latest_message": latest_commit.message.split('\n')[0],
@@ -220,9 +291,14 @@ class GitHandler:
             }
         except Exception as e:
             self.logger.warning(f"Could not get full repo info: {e}")
+            # Return minimal info on error
+            file_count = sum([len(files) for _, _, files in os.walk(repo_path) if '.git' not in _])
             return {
                 "commit_count": 0,
-                "file_count": sum([len(files) for _, _, files in os.walk(repo_path)]),
+                "file_count": file_count,
+                "total_loc": 0,
+                "languages": [],
+                "repo_name": os.path.basename(repo_path),
                 "latest_commit": "unknown",
                 "latest_author": "unknown"
             }
@@ -307,16 +383,3 @@ class GitHandler:
                 all_success = False
         
         return all_success
-
-
-class GitProgress(git.RemoteProgress):
-    """Progress handler for Git operations"""
-    
-    def __init__(self, logger: Logger):
-        super().__init__()
-        self.logger = logger
-    
-    def update(self, op_code, cur_count, max_count=None, message=''):
-        """Update progress"""
-        if message:
-            self.logger.info(f"Git: {message}")

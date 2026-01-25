@@ -104,6 +104,7 @@ class GitS3Workflow:
             # Final Status
             workflow_result["status"] = "COMPLETED"
             workflow_result["s3_path"] = upload_result.get("s3_path")
+            workflow_result["repo_info"] = repo_info  # Include repository metadata
             workflow_result["statistics"] = {
                 "files_uploaded": upload_result.get("file_count", 0),
                 "commits": repo_info.get("commit_count", 0),
