@@ -119,7 +119,12 @@ class CodeReviewController:
         analysis_id = f"analysis-{str(uuid.uuid4())[:8]}"
         
         try:
-            self.logger.info(f"🔄 Starting Git clone workflow: {repo_url}")
+            self.logger.info("=" * 60)
+            self.logger.info(f"📥 NEW GITHUB CLONE REQUEST")
+            self.logger.info(f"🔗 URL: {repo_url}")
+            self.logger.info(f"🌿 Branch: {branch}")
+            self.logger.info(f"🆔 Analysis ID: {analysis_id}")
+            self.logger.info("=" * 60)
             
             # Use Git-S3 workflow for complete processing
             workflow_result = git_s3_workflow.process_git_repository(
@@ -252,13 +257,16 @@ class CodeReviewController:
         if config:
             full_config.update(config)
         
-        # Update status
         analysis["status"] = "IN_PROGRESS"
         analysis["progress"] = 10
         analysis["started_at"] = datetime.now().isoformat()
         analysis["config"] = full_config
         
-        self.logger.info(f"Starting analysis: {analysis_id}")
+        self.logger.info("=" * 60)
+        self.logger.info(f"🚀 STARTING MULTI-AGENT ANALYSIS")
+        self.logger.info(f"🆔 Analysis ID: {analysis_id}")
+        self.logger.info(f"📁 S3 Path: {analysis['s3_path']}")
+        self.logger.info("=" * 60)
         
         # Run analysis (in production: use background task)
         try:
@@ -303,7 +311,10 @@ class CodeReviewController:
         analysis = self.analyses.get(analysis_id)
         
         if not analysis:
+            self.logger.warning(f"❓ Status check for UNKNOWN analysis ID: {analysis_id}")
             return None
+        
+        self.logger.info(f"📊 Status Poll: {analysis_id} is {analysis['status']} ({analysis.get('progress', 0)}%)")
         
         return {
             "analysis_id": analysis_id,

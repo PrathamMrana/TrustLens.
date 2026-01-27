@@ -268,15 +268,17 @@ export const AnalysisProvider = ({ children }) => {
     };
 
     const getDetailedFindings = (agentId, report) => {
+        if (!agentId || !report) return [];
         const id = agentId.toLowerCase();
         if (id.includes('security')) return report.security_findings || [];
         if (id.includes('logic')) return report.logic_findings || [];
         if (id.includes('quality')) return report.quality_summary?.findings || [];
-        if (id.includes('feature')) return report.feature_findings || []; // We'll add this to backend
+        if (id.includes('feature')) return report.feature_findings || [];
         return [];
     };
 
     const getAgentSummary = (agentId, report) => {
+        if (!agentId || !report) return "No summary available.";
         const id = agentId.toLowerCase();
         if (id.includes('security')) {
             return report.security_findings?.[0]?.description || "No major security vulnerabilities detected.";
