@@ -37,20 +37,29 @@ class AWSConfig:
     def _load_config(self):
         """Load AWS configuration from environment or defaults"""
         
+        # Helper to get env var with stripping
+        def get_env(key, default=None):
+            val = os.environ.get(key)
+            if val is None:
+                # Try lowercase version just in case
+                val = os.environ.get(key.lower())
+            return val.strip() if val else default
+
         # AWS Credentials (multiple sources)
-        self.aws_access_key_id = os.environ.get('AWS_ACCESS_KEY_ID')
-        self.aws_secret_access_key = os.environ.get('AWS_SECRET_ACCESS_KEY')
-        self.aws_session_token = os.environ.get('AWS_SESSION_TOKEN')  # For temporary credentials
+        self.aws_access_key_id = get_env('AWS_ACCESS_KEY_ID')
+        self.aws_secret_access_key = get_env('AWS_SECRET_ACCESS_KEY')
+        self.aws_session_token = get_env('AWS_SESSION_TOKEN')  # For temporary credentials
         
         # AWS Region
-        self.aws_region = os.environ.get('AWS_REGION', 'us-east-1')
+        self.aws_region = get_env('AWS_REGION', 'us-east-1')
         
         # S3 Configuration
-        self.s3_bucket_name = os.environ.get('S3_BUCKET_NAME', 'duhacks-s3-aicode')
-        self.s3_prefix = os.environ.get('S3_PREFIX', 'code-snapshots/')
+        self.s3_bucket_name = get_env('S3_BUCKET_NAME', 'duhacks-s3-aicode')
+        self.s3_prefix = get_env('S3_PREFIX', 'code-snapshots/')
         
         # Bucket creation - set to False if you have existing bucket
-        self.auto_create_bucket = os.environ.get('S3_AUTO_CREATE_BUCKET', 'false').lower() == 'true'
+        auto_create = get_env('S3_AUTO_CREATE_BUCKET', 'false').lower()
+        self.auto_create_bucket = auto_create == 'true'
         
         # Validate configuration
         self._validate_config()
@@ -60,15 +69,25 @@ class AWSConfig:
         
         # Check if credentials are provided
         if not self.aws_access_key_id or not self.aws_secret_access_key:
-            self.logger.warning("AWS credentials not found in environment variables")
+            self.logger.warning("⚠️ AWS credentials not found in environment variables")
+            if not self.aws_access_key_id:
+                self.logger.warning("   ❌ AWS_ACCESS_KEY_ID is MISSING")
+            if not self.aws_secret_access_key:
+                self.logger.warning("   ❌ AWS_SECRET_ACCESS_KEY is MISSING")
+                
             self.logger.warning("Will attempt to use IAM role or AWS CLI configuration")
-            self.logger.info("To set credentials, use:")
-            self.logger.info("  export AWS_ACCESS_KEY_ID=your_access_key")
-            self.logger.info("  export AWS_SECRET_ACCESS_KEY=your_secret_key")
+            self.logger.info("To set credentials on Render, add them to Environment Variables:")
+            self.logger.info("  AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, S3_BUCKET_NAME")
         else:
-            self.logger.info(f"AWS credentials loaded for region: {self.aws_region}")
+            # Mask credentials for security
+            masked_key = f"{self.aws_access_key_id[:4]}...{self.aws_access_key_id[-4:]}" if len(self.aws_access_key_id) > 8 else "****"
+            self.logger.info(f"✅ AWS credentials loaded (ID: {masked_key}) for region: {self.aws_region}")
         
-        self.logger.info(f"S3 Bucket: {self.s3_bucket_name}")
+        # Log bucket info
+        if self.s3_bucket_name == 'duhacks-s3-aicode' and not os.environ.get('S3_BUCKET_NAME'):
+            self.logger.info(f"ℹ️ Using DEFAULT S3 Bucket: {self.s3_bucket_name}")
+        else:
+            self.logger.info(f"✅ S3 Bucket: {self.s3_bucket_name}")
     
     def get_boto3_config(self) -> Dict[str, Any]:
         """

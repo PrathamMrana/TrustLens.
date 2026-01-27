@@ -24,8 +24,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy project
 COPY . .
 
-# Expose the port the app runs on
+# Expose the port
 EXPOSE 10000
 
-# Run the application
-CMD ["gunicorn", "--bind", "0.0.0.0:10000", "--workers", "2", "--timeout", "120", "run_api:app"]
+# Run the application using the PORT environment variable
+# We use shell form to allow variable expansion
+CMD sh -c "gunicorn --bind 0.0.0.0:${PORT} --workers 2 --timeout 120 run_api:app"

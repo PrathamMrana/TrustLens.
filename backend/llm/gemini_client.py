@@ -18,15 +18,34 @@ class GeminiClient:
         Initialize Gemini client.
         """
         import os
-        self.api_key = api_key or os.environ.get("GEMINI_API_KEY") or "PLACEHOLDER_API_KEY"
+        from utils.logger import Logger
+        self.logger = Logger("GeminiClient")
+        
+        # Load API key, prioritizing explicit arg then env vars (case-insensitive)
+        self.api_key = api_key or os.environ.get("GEMINI_API_KEY")
+        if not self.api_key:
+            self.api_key = os.environ.get("gemini_api_key")
+            
+        if not self.api_key:
+            self.logger.warning("⚠️ GEMINI_API_KEY not found in environment variables - Using MOCK mode")
+            self.api_key = "PLACEHOLDER_API_KEY"
+        else:
+            masked = f"{self.api_key[:4]}...{self.api_key[-4:]}" if len(self.api_key) > 8 else "****"
+            self.logger.info(f"✅ Gemini API key loaded (Key: {masked})")
+
         self.model_name = model
         
         try:
             import google.generativeai as genai
-            genai.configure(api_key=self.api_key)
-            self.model = genai.GenerativeModel(model)
-            self.client_ready = True
-        except Exception:
+            if self.api_key != "PLACEHOLDER_API_KEY":
+                genai.configure(api_key=self.api_key)
+                self.model = genai.GenerativeModel(model)
+                self.client_ready = True
+            else:
+                self.model = None
+                self.client_ready = False
+        except Exception as e:
+            self.logger.error(f"❌ Failed to initialize Gemini API: {e}")
             self.model = None
             self.client_ready = False
     
