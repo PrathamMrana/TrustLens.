@@ -114,46 +114,32 @@ class S3Uploader:
         metadata: Optional[Dict[str, Any]] = None
     ) -> str:
         """
-        Upload ONLY extracted code snippets and metadata to S3.
-        Does NOT upload full source code.
-        
+        Hardened S3 Upload: Uses analysis_id for isolation and category batching.
         Structure:
-        project_name/
+        analysis_id/project_name/
            ├── metadata.json
-           └── snippets/
-               ├── security/snippet_1.json
-               ├── logic/snippet_2.json
-               └── quality/snippet_3.json
-
-        Args:
-            project_name: Name of the project
-            analysis_id: Unique analysis ID
-            snippets: Dictionary of extracted snippets
-            metadata: Optional metadata dict
-
-        Returns:
-            Base S3 path for the project
+           └── snippets/ (Batched category files)
         """
         from datetime import datetime
         
-        base_path = f"s3://{self.bucket_name}/{project_name}/"
-        self.logger.info(f"🚀 Uploading ONLY code snippets to: {base_path}")
+        # Isolation: Top-level prefix is analysis_id to prevent collisions
+        base_prefix = f"{analysis_id}/{project_name}".replace("//", "/")
+        base_path = f"s3://{self.bucket_name}/{base_prefix}/"
+        
+        self.logger.info(f"🚀 Isolated S3 Upload: {base_path}")
         
         try:
-            # Upload metadata
+            # 1. Upload metadata
             if metadata:
                 metadata['analysis_id'] = analysis_id
-                metadata['uploaded_at'] = datetime.now().isoformat()
-                metadata_key = f"{project_name}/metadata.json"
+                metadata['uploaded_at'] = datetime.utcnow().isoformat()
+                metadata_key = f"{base_prefix}/metadata.json"
                 self.upload_json(metadata, metadata_key)
-                self.logger.info(f"✅ Metadata uploaded to {metadata_key}")
             
-            # Upload categorized snippets
+            # 2. Upload categorized snippets (In batches by category)
             if snippets:
-                self.upload_categorized_snippets(snippets, project_name, analysis_id)
-                self.logger.info(f"✅ All snippets uploaded to {project_name}/snippets/")
+                self.upload_categorized_snippets(snippets, base_prefix, analysis_id)
             
-            self.logger.info(f"✅ Snippet-only upload complete for {project_name}")
             return base_path
         
         except Exception as e:
@@ -178,31 +164,17 @@ class S3Uploader:
 
 
 
-    def upload_categorized_snippets(self, snippets: Dict[str, Any], project_name: str, analysis_id: str):
+    def upload_categorized_snippets(self, snippets: Dict[str, Any], base_prefix: str, analysis_id: str):
         """
-        Upload snippets into categorized folders.
-        
-        Structure:
-        project_name/snippets/security/snippet_1.json
-        project_name/snippets/logic/snippet_2.json
-        ...
-        
-        Args:
-            snippets: Dictionary of snippet lists {'security': [...], 'logic': [...]}
-            project_name: Project name
-            analysis_id: Analysis ID (for metadata linking)
+        Hardened Upload: Batch snippets by category to reduce S3 API calls.
         """
-        import json
         from dataclasses import asdict, is_dataclass
         
-        base_prefix = f"{project_name}/snippets/"
-        
         for category, snippet_list in snippets.items():
-            # e.g. project_name/snippets/security/
-            category_prefix = f"{base_prefix}{category}/"
+            if not snippet_list: continue
             
+            processed_snippets = []
             for idx, snippet in enumerate(snippet_list):
-                # Ensure snippet is a dict
                 if is_dataclass(snippet):
                     data = asdict(snippet)
                 elif hasattr(snippet, 'to_dict'):
@@ -210,17 +182,14 @@ class S3Uploader:
                 else:
                     data = snippet
                 
-                # Add metadata
                 if isinstance(data, dict):
                     data['analysis_id'] = analysis_id
-                
-                # Create a meaningful filename or use ID
-                file_name = f"{category}_snippet_{idx+1}.json"
-                s3_key = f"{category_prefix}{file_name}"
-                
-                self.upload_json(data, s3_key)
-                
-        self.logger.info(f"✅ Uploaded categorized snippets to {base_prefix}")
+                processed_snippets.append(data)
+            
+            # Batch upload category
+            s3_key = f"{base_prefix}/snippets/{category}_batch.json"
+            self.upload_json(processed_snippets, s3_key)
+            self.logger.info(f"✅ Batched {len(processed_snippets)} {category} snippets to S3")
     
     def upload_file(self, local_file: str, s3_key: str) -> str:
         """

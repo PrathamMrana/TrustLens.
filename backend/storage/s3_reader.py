@@ -281,28 +281,22 @@ class S3Reader:
 
     def get_code_snippets(self, s3_base_path: str, category: str) -> List[CodeSnippet]:
         """
-        Retrieve CodeSnippet objects for a specific category.
-        
-        Args:
-            s3_base_path: root path of project (e.g. s3://bucket/project/)
-            category: 'security', 'logic'
-            
-        Returns:
-            List of CodeSnippet objects
+        Hardened: Retrieve CodeSnippet objects from batched category files.
         """
         from schemas.code_snippet import CodeSnippet
         import json
         
         bucket, prefix = self._parse_s3_path(s3_base_path)
-        snippet_prefix = f"{prefix}snippets/{category}/"
+        # New structure: snippets/{category}_batch.json
+        batch_key = f"{prefix}snippets/{category}_batch.json".replace("//", "/")
         
-        files = self._read_from_s3(bucket, snippet_prefix)
-        
-        snippets = []
-        for content in files.values():
-            try:
-                data = json.loads(content)
-                # Handle cases where data might be a dict version of CodeSnippet
+        try:
+            self.logger.info(f"🔍 Reading batched {category} snippets from {batch_key}")
+            response = self.s3_client.get_object(Bucket=bucket, Key=batch_key)
+            data_list = json.loads(response['Body'].read().decode('utf-8'))
+            
+            snippets = []
+            for data in data_list:
                 snippet = CodeSnippet(
                     filename=data.get('filename', 'unknown'),
                     start_line=data.get('start_line', 1),
@@ -313,39 +307,29 @@ class S3Reader:
                     tags=data.get('tags', [])
                 )
                 snippets.append(snippet)
-            except Exception as e:
-                self.logger.warning(f"Failed to parse snippet JSON: {e}")
-                continue
-                
-        return snippets
+            return snippets
+        except Exception as e:
+            self.logger.warning(f"⚠️ Could not read {category} batch: {e}")
+            return []
 
     def get_snippets(self, s3_base_path: str, category: str) -> str:
         """
-        Retrieve and format snippets for a specific category.
-        
-        Args:
-            s3_base_path: root path of project (e.g. s3://bucket/project/)
-            category: 'security', 'logic'
-            
-        Returns:
-            Formatted string for LLM context
+        Retrieve and format snippets from the batched JSON format.
         """
-        bucket, prefix = self._parse_s3_path(s3_base_path)
-        snippet_prefix = f"{prefix}snippets/{category}/"
-        
-        files = self._read_from_s3(bucket, snippet_prefix)
-        
-        snippets = []
-        import json
-        
-        for content in files.values():
-            try:
-                data = json.loads(content)
-                snippets.append(data)
-            except:
-                continue
+        snippets = self.get_code_snippets(s3_base_path, category)
+        # Convert objects back to dicts for the formatter
+        snippet_dicts = []
+        for s in snippets:
+            snippet_dicts.append({
+                'filename': s.filename,
+                'start_line': s.start_line,
+                'end_line': s.end_line,
+                'content': s.content,
+                'context': s.context,
+                'tags': s.tags
+            })
                 
-        return self._format_snippets(snippets)
+        return self._format_snippets(snippet_dicts)
 
     def _format_snippets(self, snippets: list) -> str:
         """Format snippets into LLM-readable context"""

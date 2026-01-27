@@ -86,6 +86,7 @@ export const AnalysisProvider = ({ children }) => {
     };
 
     const startAnalysis = async (input, type = 'deep', suggestions = false) => {
+        let currentAnalysisId;
         try {
             setError(null);
             // setStatus('UPLOADING'); // Removed to start immediate feedback
