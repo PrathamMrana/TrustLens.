@@ -106,104 +106,80 @@ class GitHandler:
     ) -> Dict[str, Any]:
 
         if not GIT_AVAILABLE:
-            return {
-                "success": False,
-                "error": "GitPython not installed",
-                "repo_url": repo_url,
-            }
+            return {"success": False, "error": "GitPython not installed", "repo_url": repo_url}
 
         if not self.validate_repo_url(repo_url):
-            return {
-                "success": False,
-                "error": "Invalid repository URL",
-                "repo_url": repo_url,
-            }
+            return {"success": False, "error": "Invalid repository URL", "repo_url": repo_url}
 
         repo_name = self.extract_repo_name(repo_url)
         safe_name = "".join(c for c in repo_name if c.isalnum() or c in ("-", "_"))
         timestamp = datetime.utcnow().strftime("%Y%m%d%H%M%S")
-        clone_dir = os.path.join(
-            self.base_temp_dir, f"repo-{safe_name}-{timestamp}"
-        )
+        clone_dir = os.path.join(self.base_temp_dir, f"repo-{safe_name}-{timestamp}")
 
         raw_token = os.environ.get("GITHUB_TOKEN")
         token = raw_token.strip() if raw_token else None
 
-        # ✅ CORRECT GitHub auth format
+        # ✅ GitHub auth format
         if token and "github.com" in repo_url:
-            auth_url = repo_url.replace(
-                "https://",
-                f"https://x-access-token:{token}@",
-            )
-            self.logger.info("🔑 Using GITHUB_TOKEN for authentication")
+            auth_url = repo_url.replace("https://", f"https://x-access-token:{token}@")
         else:
             auth_url = repo_url
 
-        safe_url = auth_url.replace(token, "***") if token else auth_url
-        self.logger.info(f"🔄 Cloning from: {safe_url}")
+        # Retry logic for network flakiness
+        max_retries = 3
+        last_error = None
 
-        try:
-            clone_kwargs = {
-                "to_path": clone_dir,
-                "branch": branch,
-                "progress": GitProgress(self.logger),
-            }
+        for attempt in range(max_retries):
+            try:
+                self.logger.info(f"🔄 Clone attempt {attempt + 1}/{max_retries} for {repo_name}...")
+                
+                clone_kwargs = {
+                    "to_path": clone_dir,
+                    "branch": branch,
+                    "progress": GitProgress(self.logger),
+                    "env": {"GIT_TERMINAL_PROMPT": "0"} 
+                }
 
-            if depth:
-                clone_kwargs["depth"] = depth
+                if depth:
+                    clone_kwargs["depth"] = depth
 
-            repo = Repo.clone_from(auth_url, **clone_kwargs)
+                repo = Repo.clone_from(auth_url, **clone_kwargs)
+                
+                if os.path.exists(clone_dir):
+                    repo_info = self._get_repo_info(repo, clone_dir)
+                    self.cloned_repos[repo_name] = {
+                        "local_path": clone_dir,
+                        "repo_url": repo_url,
+                        "branch": branch,
+                        "cloned_at": timestamp,
+                    }
+                    self.logger.info(f"✅ Successfully cloned: {repo_name}")
+                    return {
+                        "success": True,
+                        "repo_name": repo_name,
+                        "local_path": clone_dir,
+                        "repo_url": repo_url,
+                        "branch": branch,
+                        "repo_info": repo_info,
+                    }
 
-            if not os.path.exists(clone_dir):
-                raise RuntimeError("Clone directory was not created")
+            except git.exc.GitCommandError as e:
+                import time
+                stderr = getattr(e, "stderr", "") or str(e)
+                last_error = self._diagnose_git_error(stderr.replace(token, "***") if token else stderr)
+                self.logger.warning(f"⚠️ Attempt {attempt + 1} failed: {last_error}")
+                self._cleanup_dir(clone_dir)
+                if attempt < max_retries - 1:
+                    time.sleep(2) # Wait before retry
+            except Exception as e:
+                self.logger.error(f"❌ Critical clone error: {e}")
+                break
 
-            repo_info = self._get_repo_info(repo, clone_dir)
-
-            # ✅ TRACK CLONED REPO
-            self.cloned_repos[repo_name] = {
-                "local_path": clone_dir,
-                "repo_url": repo_url,
-                "branch": branch,
-                "cloned_at": timestamp,
-            }
-
-            self.logger.info(f"✅ Successfully cloned: {repo_name}")
-
-            return {
-                "success": True,
-                "repo_name": repo_name,
-                "local_path": clone_dir,
-                "repo_url": repo_url,
-                "branch": branch,
-                "repo_info": repo_info,
-            }
-
-        except git.exc.GitCommandError as e:
-            stderr = getattr(e, "stderr", "") or str(e)
-            masked = stderr.replace(token, "***") if token else stderr
-
-            self.logger.error("❌ Git clone failed")
-            self.logger.error(f"STDERR: {masked}")
-
-            diagnosis = self._diagnose_git_error(masked)
-
-            self._cleanup_dir(clone_dir)
-
-            return {
-                "success": False,
-                "error": diagnosis,
-                "details": masked,
-                "repo_url": repo_url,
-            }
-
-        except Exception as e:
-            self.logger.error(f"❌ Clone failed: {e}")
-            self._cleanup_dir(clone_dir)
-            return {
-                "success": False,
-                "error": str(e),
-                "repo_url": repo_url,
-            }
+        return {
+            "success": False,
+            "error": last_error or "Clone failed after multiple attempts",
+            "repo_url": repo_url
+        }
 
     # ------------------------------------------------------------------
     # Diagnostics
@@ -216,7 +192,7 @@ class GitHandler:
             return "Repository or branch not found"
         if "exit code(128)" in err:
             return "Git error 128 – usually auth, branch, or network issue"
-        return "Git operation failed"
+        return f"Git operation failed: {error[:100]}..."
 
     # ------------------------------------------------------------------
     # Repo info
@@ -242,7 +218,7 @@ class GitHandler:
     # ------------------------------------------------------------------
     # Cleanup
     # ------------------------------------------------------------------
-    def cleanup_repository(self, repo_name: str) -> bool:
+    def cleanup_repository(self, repo_name: str, force: bool = False) -> bool:
         repo = self.cloned_repos.get(repo_name)
         if not repo:
             return False
