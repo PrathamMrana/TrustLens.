@@ -150,25 +150,8 @@ export const AnalysisProvider = ({ children }) => {
 
             setAnalysisId(currentAnalysisId);
 
-            // 2. Start Analysis
-            const startResponse = await fetch(`${APP_CONFIG.API_BASE_URL}/analysis/start`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    analysis_id: currentAnalysisId,
-                    config: {
-                        min_confidence: 0.7,
-                        enable_security: true,
-                        enable_logic: true,
-                        enable_quality: true
-                    }
-                })
-            });
-            const startData = await startResponse.json();
-            if (!startResponse.ok) throw new Error(startData.message || 'Analysis start failed');
-
-            // setStatus('ANALYZING'); // Already set
-            // simulateProgress(); // Already started
+            // 🚀 The Backend now AUTO-STARTS analysis. 
+            // We can move directly to polling!
             startPolling(currentAnalysisId);
 
         } catch (err) {

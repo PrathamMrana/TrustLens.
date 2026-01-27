@@ -157,17 +157,26 @@ class CodeReviewController:
             }
 
             # 🚀 AUTO-START ANALYSIS (Background)
-            # This satisfies "i dont want to use analysis id" by making it one-shot
-            # and prevents the multi-worker memory collision.
             import threading
             def run_background_analysis():
                 try:
                     self.logger.info(f"🧵 Starting background orchestrator for {analysis_id}")
                     orchestrator = Orchestrator(self.default_config)
                     report = orchestrator.analyze_repository(repo_url, s3_path)
-                    self.reports[analysis_id] = report.to_dict()
-                    self.analyses[analysis_id]["status"] = "COMPLETED"
-                    self.analyses[analysis_id]["progress"] = 100
+                    
+                    report_data = report.to_dict()
+                    self.reports[analysis_id] = report_data
+                    
+                    # PERSIST TO S3 (Source of truth for all workers)
+                    report_key = f"{analysis_id}/final_report.json"
+                    self.s3_uploader.upload_json(report_data, report_key)
+                    
+                    if analysis_id in self.analyses:
+                        self.analyses[analysis_id]["status"] = "COMPLETED"
+                        self.analyses[analysis_id]["progress"] = 100
+                    
+                    self.logger.info(f"💾 Report persisted to S3 for {analysis_id}")
+                    
                 except Exception as e:
                     self.logger.error(f"❌ Background process failed: {e}")
                     if analysis_id in self.analyses:
@@ -314,21 +323,38 @@ class CodeReviewController:
     
     def get_analysis_status(self, analysis_id: str) -> Optional[Dict[str, Any]]:
         """
-        Get analysis status for polling.
-        
-        Args:
-            analysis_id: Analysis identifier
-        
-        Returns:
-            Status information
+        Get analysis status (Stateless: checks S3 as fallback).
         """
         analysis = self.analyses.get(analysis_id)
         
+        # If not in memory, check if the report already exists in S3
         if not analysis:
-            self.logger.warning(f"❓ Status check for UNKNOWN analysis ID: {analysis_id}")
-            return None
-        
-        self.logger.info(f"📊 Status Poll: {analysis_id} is {analysis['status']} ({analysis.get('progress', 0)}%)")
+            try:
+                from storage.s3_reader import S3Reader
+                reader = S3Reader()
+                # Check for the presence of the report file
+                report_key = f"{analysis_id}/final_report.json"
+                # This is a bit heavy, but safe for worker-swaps
+                bucket = reader.bucket_name
+                try:
+                    reader.s3_client.head_object(Bucket=bucket, Key=report_key)
+                    return {
+                        "analysis_id": analysis_id,
+                        "status": "COMPLETED",
+                        "progress": 100,
+                        "message": "Results loaded from S3"
+                    }
+                except:
+                    # If not even in S3, then it's either truly missing or still in first stage
+                    return {
+                        "analysis_id": analysis_id,
+                        "status": "IN_PROGRESS",
+                        "progress": 50,
+                        "message": "Analysis in progress (worker synchronized via S3)"
+                    }
+            except Exception as e:
+                self.logger.warning(f"Status S3 check failed: {e}")
+                return None
         
         return {
             "analysis_id": analysis_id,
@@ -341,19 +367,26 @@ class CodeReviewController:
     
     def get_detailed_report(self, analysis_id: str) -> Optional[Dict[str, Any]]:
         """
-        Get detailed, explainable analysis report.
-        **MOST IMPORTANT METHOD**
-        
-        Args:
-            analysis_id: Analysis identifier
-        
-        Returns:
-            Detailed report with findings and reasoning
+        Get detailed report (Stateless: loads from S3 if missing from memory).
         """
-        if analysis_id not in self.reports:
-            return None
+        raw_report = self.reports.get(analysis_id)
         
-        raw_report = self.reports[analysis_id]
+        if not raw_report:
+            # S3 Fallback
+            try:
+                from storage.s3_reader import S3Reader
+                reader = S3Reader()
+                report_key = f"s3://{reader.bucket_name}/{analysis_id}/final_report.json"
+                raw_report = reader.s3_client.get_object(
+                    Bucket=reader.bucket_name, 
+                    Key=f"{analysis_id}/final_report.json"
+                )['Body'].read().decode('utf-8')
+                import json
+                raw_report = json.loads(raw_report)
+                self.reports[analysis_id] = raw_report # Cache locally
+            except Exception as e:
+                self.logger.warning(f"Failed to load report from S3 for {analysis_id}: {e}")
+                return None
         
         # Transform to frontend-friendly format
         detailed_report = {

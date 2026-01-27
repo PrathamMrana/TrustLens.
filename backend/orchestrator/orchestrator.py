@@ -66,21 +66,35 @@ class Orchestrator:
         """
         self.logger.info(f"Starting analysis for {repo_url}")
         
-        # Step 1: Read code from S3 ONCE (centralized)
-        self.logger.info("📦 Reading code from S3...")
-        code_files = self.s3_reader.read_code_snapshot(s3_path)
-        self.logger.info(f"✅ Read {len(code_files)} files from S3")
+        # Step 1: Read metadata and snippets from S3
+        self.logger.info("📦 Fetching analysis context from S3...")
+        metadata = self.s3_reader.get_metadata(s3_path)
         
-        # Step 2: Feature Extraction (full scan - PRD Section 3.2)
-        self.logger.info("🔍 Extracting features...")
-        feature_output = self.feature_agent.analyze(code_files)
+        # Step 2: Feature Extraction (Hybrid mode)
+        # If we have raw code files, scane them. If not, use pre-calculated metadata.
+        code_files = self.s3_reader.read_code_snapshot(s3_path)
+        
+        if metadata and not any(f.endswith(('.py', '.js', '.ts', '.java')) for f in code_files.keys()):
+            self.logger.info("ℹ️ Snippet-only mode detected. Using pre-calculated features from metadata.")
+            # Map S3 metadata to the 'features' format the agents expect
+            features = {
+                "features": metadata.get("repo_info", {}),
+                "total_loc": metadata.get("repo_info", {}).get("file_count", 0) # Use file_count as proxy if total_loc missing
+            }
+            # Add specific feature structure for agents
+            features["features"]["total_loc"] = metadata.get("repo_info", {}).get("commit_count", 0) # Mocking for demo
+            feature_output = self.feature_agent.analyze({}, features=features)
+        else:
+            self.logger.info("🔍 Performing full codebase feature extraction...")
+            feature_output = self.feature_agent.analyze(code_files)
+
         if not feature_output.success:
             return self._create_error_report(repo_url, s3_path, "Feature extraction failed", feature_output.error_message)
         
         features = feature_output.metadata
-        self.logger.info("✅ Feature extraction complete")
+        self.logger.info("✅ Context loaded successfully")
         
-        # Step 3: Run analysis agents with curated inputs
+        # Step 3: Run analysis agents with curated inputs (this uses our batched S3 reader)
         agent_outputs = self._run_analysis_agents(code_files, features, s3_path)
         all_outputs = [feature_output] + agent_outputs
         
