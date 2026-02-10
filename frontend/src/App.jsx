@@ -7,8 +7,6 @@ import SessionPage from './pages/SessionPage';
 import AgentsPage from './pages/AgentsPage';
 import ConflictsPage from './pages/ConflictsPage';
 import ReportPage from './pages/ReportPage';
-import HistoryPage from './pages/HistoryPage';
-import SettingsPage from './pages/SettingsPage';
 import { AnalysisProvider } from './context/AnalysisContext';
 
 const App = () => {
@@ -23,8 +21,6 @@ const App = () => {
             <Route path="agents" element={<AgentsPage />} />
             <Route path="conflicts" element={<ConflictsPage />} />
             <Route path="report" element={<ReportPage />} />
-            <Route path="history" element={<HistoryPage />} />
-            <Route path="settings" element={<SettingsPage />} />
           </Route>
         </Routes>
       </AnalysisProvider>

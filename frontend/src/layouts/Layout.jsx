@@ -1,9 +1,10 @@
 import React from 'react';
 import { Outlet, Link, useLocation } from 'react-router-dom';
 import Header from '../components/Header';
-import { ShieldCheck, Info, Zap, Clock, Settings, GitMerge } from 'lucide-react';
+import { ShieldCheck, Info, Zap, Clock, GitMerge } from 'lucide-react';
 import clsx from 'clsx';
 import { AnimatePresence, motion } from 'framer-motion';
+import { useAnalysis } from '../context/AnalysisContext';
 
 const NavItem = ({ to, icon: Icon, label, active }) => (
     <Link
@@ -23,6 +24,7 @@ const NavItem = ({ to, icon: Icon, label, active }) => (
 const Layout = () => {
     const location = useLocation();
     const isLandingPage = location.pathname === '/';
+    const { analysisId } = useAnalysis();
 
     return (
         <div className="min-h-screen bg-background text-slate-200 font-sans selection:bg-blue-500/30 flex flex-col">
@@ -56,8 +58,13 @@ const Layout = () => {
 
                                 <div className="w-px h-4 bg-white/10 mx-1" />
 
-                                <NavItem to="/history" icon={Clock} label="History" active={location.pathname === '/history'} />
-                                <NavItem to="/settings" icon={Settings} label="Settings" active={location.pathname === '/settings'} />
+                                <NavItem
+                                    to={analysisId ? `/session/${analysisId}` : '#'}
+                                    icon={Clock}
+                                    label="Verdict"
+                                    active={location.pathname.includes('/session')}
+                                    disabled={!analysisId}
+                                />
                             </nav>
                         </div>
 

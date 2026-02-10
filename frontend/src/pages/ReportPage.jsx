@@ -1,3 +1,4 @@
+import React from 'react';
 import { useAnalysis } from '../context/AnalysisContext';
 import { FileText, Download, Share2, Shield, CheckCircle2, AlertTriangle, Info, Brain, Activity, Code2, Globe, Layers, Cpu } from 'lucide-react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -17,13 +18,13 @@ const ReportPage = () => {
     });
 
     return (
-        <div className="max-w-4xl mx-auto py-12">
+        <div className="max-w-4xl mx-auto py-12 px-4">
             <div className="flex items-center justify-between mb-8">
                 <div>
                     <h1 className="text-2xl font-bold text-white mb-2">Audit Report #{analysisId?.substring(0, 8).toUpperCase()}</h1>
                     <p className="text-slate-400 text-sm">Generated on {formattedDate} • UTC</p>
                 </div>
-                
+
             </div>
 
             <div className="bg-white/5 border border-white/5 rounded-2xl overflow-hidden backdrop-blur-md">
@@ -34,11 +35,13 @@ const ReportPage = () => {
                             <h3 className="text-lg font-semibold text-white">Executive Summary</h3>
                             <p className="text-slate-400 text-sm mt-1">Multi-Agent Consensus Analysis</p>
                         </div>
-                        <div className={`px-3 py-1 rounded text-sm font-medium border ${report.deferred
+                        <div className={`px-3 py-1 rounded text-sm font-medium border ${report.final_decision === 'proceed_with_caution'
                             ? "bg-yellow-500/10 border-yellow-500/20 text-yellow-500"
-                            : "bg-emerald-500/10 border-emerald-500/20 text-emerald-500"
+                            : report.final_decision === 'acceptable'
+                                ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-500"
+                                : "bg-red-500/10 border-red-500/20 text-red-500"
                             }`}>
-                            {report.final_decision?.toUpperCase()}
+                            {report.final_decision?.replace(/_/g, ' ').toUpperCase()}
                         </div>
                     </div>
                 </div>
@@ -61,7 +64,7 @@ const ReportPage = () => {
                                 </div>
                             </div>
                             <div className="p-4 rounded-lg bg-slate-900/50 border border-white/5">
-                                <div className="text-slate-500 text-xs mb-1">Confidence</div>
+                                <div className="text-slate-500 text-xs mb-1">Analysis Confidence</div>
                                 <div className="text-slate-300 text-sm">{Math.round(report.overall_confidence * 100)}%</div>
                             </div>
                             <div className="p-4 rounded-lg bg-slate-900/50 border border-white/5">
@@ -76,11 +79,6 @@ const ReportPage = () => {
                         <div className="p-4 rounded-lg bg-blue-500/5 border border-blue-500/20">
                             <p className="text-slate-300 text-sm leading-relaxed italic">
                                 "{report.system_reasoning}"
-                                {report.deferred && (
-                                    <span className="block mt-2 text-yellow-500/80 not-italic font-medium">
-                                        Reason for Deferral: {report.deferral_reason}
-                                    </span>
-                                )}
                             </p>
                         </div>
                     </div>
@@ -145,7 +143,7 @@ const ReportPage = () => {
                                     <span className="text-[10px] font-bold text-purple-500/50 uppercase tracking-widest">Complexity</span>
                                 </div>
                                 <div className="relative z-10">
-                                    <div className="text-2xl font-bold text-white">{report.quality_summary?.metrics?.max_nesting_depth || 0} Levels</div>
+                                    <div className="text-2xl font-bold text-white max-w-[150px] truncate" title={report.quality_summary?.metrics?.max_nesting_depth || 0}>{report.quality_summary?.metrics?.max_nesting_depth || 0} Levels</div>
                                     <div className="text-xs text-slate-400 mt-1">Maximum architectural nesting</div>
                                 </div>
                                 <div className="absolute -right-4 -bottom-4 opacity-5 group-hover:opacity-10 transition-opacity">
