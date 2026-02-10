@@ -5,9 +5,7 @@ import AnalysisStatusCard from '../components/AnalysisStatusCard';
 import AnalysisLogs from '../components/AnalysisLogs';
 import AgentCard from '../components/AgentCard';
 import KeyInsights from '../components/KeyInsights';
-import OverallOutcomePanel from '../components/OverallOutcomePanel';
-import ConflictPanel from '../components/ConflictPanel';
-import FinalDecisionPanel from '../components/FinalDecisionPanel';
+import UnifiedOutcomePanel from '../components/UnifiedOutcomePanel';
 import { useAnalysis } from '../context/AnalysisContext';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -85,9 +83,9 @@ const SessionPage = () => {
 
                     {/* Progressive Agent Cards */}
                     <div className="space-y-6">
-                        {/* Overall Outcome Panel - Top of results */}
+                        {/* Unified Outcome Panel - Top of results */}
                         {status === 'COMPLETE' && (
-                            <OverallOutcomePanel overall={overall} />
+                            <UnifiedOutcomePanel decision={getDecisionKey()} overall={overall} report={report} />
                         )}
 
                         {/* Key Insights - Only show when we have results */}
@@ -130,18 +128,6 @@ const SessionPage = () => {
                         </AnimatePresence>
                     </div>
 
-                    {/* Conflict & Decision - Only show when complete */}
-                    {status === 'COMPLETE' && (
-                        <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.5 }}
-                            className="space-y-6 pt-8 border-t border-white/5"
-                        >
-
-                            <FinalDecisionPanel decision={getDecisionKey()} />
-                        </motion.div>
-                    )}
                 </div>
             </div>
         </div>
