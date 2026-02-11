@@ -1,14 +1,16 @@
 import React from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Shield, Brain, Zap, Search, FileCode, CheckCircle2, Loader2, Binary } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Shield, Brain, Zap, Search, FileCode, Binary, GitMerge, Scale } from 'lucide-react';
 import { ANALYSIS_STEPS } from '../utils/constants';
 
 const STEP_CONFIG = {
     1: { icon: FileCode, color: "text-blue-400", border: "border-blue-500/30", bg: "bg-blue-500/10", glow: "shadow-blue-500/20", subtext: "Ingesting codebase..." },
-    2: { icon: Binary, color: "text-purple-400", border: "border-purple-500/30", bg: "bg-purple-500/10", glow: "shadow-purple-500/20", subtext: "Building AST & Control Flow Graph..." },
+    2: { icon: Binary, color: "text-purple-400", border: "border-purple-500/30", bg: "bg-purple-500/10", glow: "shadow-purple-500/20", subtext: "Building AST & extracting features..." },
     3: { icon: Shield, color: "text-security", border: "border-security/30", bg: "bg-security/10", glow: "shadow-glow-security", subtext: "Scanning for CVEs & vulnerabilities..." },
     4: { icon: Brain, color: "text-logic", border: "border-logic/30", bg: "bg-logic/10", glow: "shadow-glow-logic", subtext: "Verifying business logic integrity..." },
-    5: { icon: Search, color: "text-quality", border: "border-quality/30", bg: "bg-quality/10", glow: "shadow-glow-quality", subtext: "Checking complexity & maintenance..." },
+    5: { icon: Search, color: "text-quality", border: "border-quality/30", bg: "bg-quality/10", glow: "shadow-glow-quality", subtext: "Evaluating code quality metrics..." },
+    6: { icon: Scale, color: "text-accent-cyan", border: "border-cyan-500/30", bg: "bg-cyan-500/10", glow: "shadow-cyan-500/20", subtext: "Checking cross-agent consistency..." },
+    7: { icon: GitMerge, color: "text-uncertainty", border: "border-uncertainty/30", bg: "bg-uncertainty/10", glow: "shadow-glow-uncertainty", subtext: "Synthesizing final decision..." },
 };
 
 const AnalysisStatusCard = ({ currentStepId }) => {

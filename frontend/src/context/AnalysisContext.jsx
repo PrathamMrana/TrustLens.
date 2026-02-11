@@ -192,7 +192,7 @@ export const AnalysisProvider = ({ children }) => {
             } catch (err) {
                 console.error("Polling error:", err);
             }
-        }, 2000);
+        }, 1000);
     };
 
     const fetchResults = async (id) => {

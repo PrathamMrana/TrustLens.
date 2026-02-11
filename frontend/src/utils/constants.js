@@ -15,7 +15,9 @@ export const ANALYSIS_STEPS = [
     { id: 2, label: "Extracting structural features" },
     { id: 3, label: "Running Security Agent" },
     { id: 4, label: "Running Logic Agent" },
-    { id: 5, label: "Cross-agent consistency check" },
+    { id: 5, label: "Running Quality Agent" },
+    { id: 6, label: "Cross-agent consistency check" },
+    { id: 7, label: "Decision synthesis" },
 ];
 
-export const MOCK_ANALYSIS_TIME_MS = 3000; // Time per step for "deliberate speed"
+export const MOCK_ANALYSIS_TIME_MS = 50; // Analysis Speed: Instant

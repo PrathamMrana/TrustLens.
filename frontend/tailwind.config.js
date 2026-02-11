@@ -32,7 +32,8 @@ export default {
         brand: "#3b82f6", // Keep brand blue for generic actions if needed, or replace with neutral
       },
       fontFamily: {
-        sans: ["Inter", "system-ui", "sans-serif"],
+        sans: ["Outfit", "Inter", "system-ui", "sans-serif"],
+        mono: ["JetBrains Mono", "monospace"],
       },
       borderRadius: {
         'card': '14px',

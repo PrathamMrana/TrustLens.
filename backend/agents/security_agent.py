@@ -69,7 +69,7 @@ class SecurityAnalysisAgent(BaseAgent):
                 total_confidence += result["confidence"]
             
             # Calculate overall confidence
-            avg_confidence = total_confidence / len(snippets) if snippets else 0.5
+            avg_confidence = total_confidence / len(snippets) if snippets else 0.95
             
             # Determine risk level
             risk_level = self._determine_risk_level(findings)
@@ -140,7 +140,9 @@ class SecurityAnalysisAgent(BaseAgent):
             finding["location"] = snippet.get_location()
             finding["filename"] = snippet.filename
             finding["line_number"] = snippet.start_line
-            finding["code"] = snippet.content
+            # Prioritize specific line from LLM, fallback to full snippet
+            finding["code"] = finding.get("line", snippet.content)
+            finding["full_snippet"] = snippet.content
         
         return {
             "findings": findings,

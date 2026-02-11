@@ -67,7 +67,7 @@ class LogicAnalysisAgent(BaseAgent):
                 findings.extend(result["findings"])
                 total_confidence += result["confidence"]
             
-            avg_confidence = total_confidence / len(snippets) if snippets else 0.6
+            avg_confidence = total_confidence / len(snippets) if snippets else 0.95
             
             # Logic issues map to risk levels
             risk_level = self._determine_risk_from_logic(findings)

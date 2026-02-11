@@ -1,10 +1,17 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Shield, Brain, Zap, Search, ChevronRight, ChevronDown } from 'lucide-react';
+import { Shield, Brain, Zap, Search, ChevronRight, ChevronDown, GitMerge } from 'lucide-react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
 
 const RISK_CONFIG = {
+    critical: {
+        color: "text-security",
+        bg: "bg-surface",
+        border: "border-security/30",
+        glow: "shadow-glow-security",
+        fill: "bg-security"
+    },
     high: {
         color: "text-security",
         bg: "bg-surface",
@@ -37,9 +44,15 @@ const RISK_CONFIG = {
 
 const ICONS = {
     "Security Agent": Shield,
+    "Security Analysis": Shield,
     "Logic Agent": Brain,
+    "Logic Analysis": Brain,
     "Quality Agent": Search,
+    "Code Quality": Search,
     "Feature Agent": Zap,
+    "Feature Extraction": Zap,
+    "Decision Agent": GitMerge,
+    "Decision": GitMerge,
 };
 
 const AgentCard = ({ agent, index }) => {
@@ -49,10 +62,16 @@ const AgentCard = ({ agent, index }) => {
 
     return (
         <motion.div
+            layout
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.15, ease: "easeOut" }}
-            className={`w-full rounded-card border ${config.border} ${config.bg} p-1 transition-all duration-500 hover:shadow-soft`}
+            transition={{ delay: index * 0.1 }}
+            className={`
+                w-full group rounded-card border ${config.border} ${config.bg} p-1
+                overflow-hidden transition-all duration-300
+                hover:shadow-lg hover:scale-[1.01] hover:border-opacity-50
+                focus-within:ring-2 focus-within:ring-blue-500/50 focus-within:ring-offset-2 focus-within:ring-offset-background
+            `}
         >
             <div
                 onClick={() => setExpanded(!expanded)}
@@ -69,13 +88,13 @@ const AgentCard = ({ agent, index }) => {
                         <div>
                             <h4 className="text-sm font-semibold text-primary">{agent.name}</h4>
                             <div className={`text-xs font-mono uppercase tracking-wider mt-1 opacity-80 ${config.color}`}>
-                                {agent.risk === 'high' ? 'Critical Risk' : agent.risk === 'medium' ? 'Warning' : 'Safe to Proceed'}
+                                {(agent.risk === 'high' || agent.risk === 'critical') ? 'Critical Risk' : agent.risk === 'medium' ? 'Warning' : 'Safe to Proceed'}
                             </div>
                         </div>
                     </div>
 
                     <div className="text-right">
-                        <div className="text-[10px] text-muted uppercase font-medium mb-1.5 tracking-wider">Confidence</div>
+                        <div className="text-[10px] text-muted uppercase font-medium mb-1.5 tracking-wider">Analysis Confidence</div>
                         <div className="flex items-center gap-2 justify-end">
                             <div className="w-24 h-1.5 bg-secondary rounded-full overflow-hidden border border-white/5">
                                 <motion.div

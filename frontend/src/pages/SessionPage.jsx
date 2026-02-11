@@ -5,9 +5,7 @@ import AnalysisStatusCard from '../components/AnalysisStatusCard';
 import AnalysisLogs from '../components/AnalysisLogs';
 import AgentCard from '../components/AgentCard';
 import KeyInsights from '../components/KeyInsights';
-import OverallOutcomePanel from '../components/OverallOutcomePanel';
-import ConflictPanel from '../components/ConflictPanel';
-import FinalDecisionPanel from '../components/FinalDecisionPanel';
+import UnifiedOutcomePanel from '../components/UnifiedOutcomePanel';
 import { useAnalysis } from '../context/AnalysisContext';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -20,8 +18,35 @@ const SessionPage = () => {
         completedMeasurements,
         results,
         overall,
-        analysisId
+        analysisId,
+        report
     } = useAnalysis();
+
+    // Map backend decision values to FinalDecisionPanel keys
+    const getDecisionKey = () => {
+        if (!report?.final_decision) return null;
+        const d = report.final_decision.toLowerCase();
+
+        const risk = report.overall_risk_level?.toLowerCase();
+
+        // Priority 1: High/Critical Risk overrides everything
+        if (d.includes('manual_review_required') || d.includes('review_required') || risk === 'high' || risk === 'critical') {
+            return 'RISK';
+        }
+
+        // Priority 2: Conflict or Low Confidence -> Manual Review (Uncertainty)
+        if (report.disagreement_detected || (report.overall_confidence && report.overall_confidence < 0.7)) {
+            return 'MANUAL_REVIEW';
+        }
+
+        // Priority 3: Caution
+        if (d === 'proceed_with_caution' || risk === 'medium') {
+            return 'CAUTION';
+        }
+
+        // Priority 4: Safe
+        return 'SAFE';
+    };
 
     // Redirect logic
     useEffect(() => {
@@ -58,9 +83,9 @@ const SessionPage = () => {
 
                     {/* Progressive Agent Cards */}
                     <div className="space-y-6">
-                        {/* Overall Outcome Panel - Top of results */}
+                        {/* Unified Outcome Panel - Top of results */}
                         {status === 'COMPLETE' && (
-                            <OverallOutcomePanel overall={overall} />
+                            <UnifiedOutcomePanel decision={getDecisionKey()} overall={overall} report={report} />
                         )}
 
                         {/* Key Insights - Only show when we have results */}
@@ -81,13 +106,13 @@ const SessionPage = () => {
                                             className="p-3 rounded-lg border border-border bg-surface/30"
                                         >
                                             <div className="text-[10px] uppercase text-muted font-bold tracking-wider mb-1 truncate">{agent.name}</div>
-                                            <div className={`text-sm font-bold ${agent.risk === 'high' ? 'text-security' :
+                                            <div className={`text-sm font-bold ${(agent.risk === 'high' || agent.risk === 'critical') ? 'text-security' :
                                                 agent.risk === 'medium' ? 'text-quality' : 'text-logic'
                                                 }`}>
-                                                {agent.risk === 'high' ? 'CRITICAL' : agent.risk === 'medium' ? 'WARNING' : 'SAFE'}
+                                                {(agent.risk === 'high' || agent.risk === 'critical') ? 'CRITICAL' : agent.risk === 'medium' ? 'WARNING' : 'SAFE'}
                                             </div>
                                             <div className="text-xs text-muted mt-1">
-                                                {agent.confidence}% Conf. • {agent.findingsCount} hints
+                                                {agent.confidence}% Confidence • {agent.findingsCount} hints
                                             </div>
                                         </motion.div>
                                     ))}
@@ -103,18 +128,6 @@ const SessionPage = () => {
                         </AnimatePresence>
                     </div>
 
-                    {/* Conflict & Decision - Only show when complete */}
-                    {status === 'COMPLETE' && (
-                        <motion.div
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.5 }}
-                            className="space-y-6 pt-8 border-t border-white/5"
-                        >
-                            <ConflictPanel conflict={true} />
-                            <FinalDecisionPanel decision="MANUAL_REVIEW" />
-                        </motion.div>
-                    )}
                 </div>
             </div>
         </div>

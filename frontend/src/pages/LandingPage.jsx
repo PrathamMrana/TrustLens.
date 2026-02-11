@@ -9,52 +9,55 @@ import HowItWorksModal from '../components/HowItWorksModal';
 const HeroSection = ({ onOpenModal }) => (
     <div className="relative min-h-[90vh] flex flex-col items-center justify-center text-center px-4 overflow-hidden">
         {/* Animated Background */}
-        <div className="absolute inset-0 z-0">
+        <div className="absolute inset-0 z-0 bg-background">
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-blue-500/10 rounded-full blur-[120px] animate-pulse" />
             <div className="absolute top-1/3 left-1/4 w-[400px] h-[400px] bg-accent-cyan/10 rounded-full blur-[100px]" />
+            {/* Grain Overlay */}
+            <div className="absolute inset-0 bg-noise opacity-30 pointer-events-none mix-blend-overlay" />
         </div>
 
         {/* Content */}
-        <div className="relative z-10 max-w-5xl mx-auto space-y-8">
+        <div className="relative z-10 max-w-6xl mx-auto space-y-10">
             <motion.div
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.8 }}
+                transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
             >
-                <div className="relative inline-block mb-2">
-                    <span className="absolute -inset-1 rounded-full bg-gradient-to-r from-blue-600 to-accent-cyan opacity-20 blur-xl animate-pulse"></span>
-                    <span className="relative inline-block py-1 px-4 rounded-full bg-surface/50 border border-white/10 text-xs font-mono text-accent-cyan tracking-[0.2em] backdrop-blur-md">
+                <div className="relative inline-block mb-6 group cursor-default">
+                    <span className="absolute -inset-1 rounded-full bg-gradient-to-r from-blue-600 to-accent-cyan opacity-20 blur-xl animate-pulse group-hover:opacity-40 transition-opacity duration-500"></span>
+                    <span className="relative inline-block py-1.5 px-5 rounded-full bg-surface/80 border border-white/10 text-xs font-mono text-accent-cyan tracking-[0.25em] backdrop-blur-md shadow-lg">
                         MULTI-AGENT INTELLIGENCE v2.0
                     </span>
                 </div>
 
-                <h1 className="text-7xl md:text-9xl font-black tracking-tighter text-white mb-6 drop-shadow-2xl">
-                    <span className="text-transparent bg-clip-text bg-gradient-to-b from-white via-white to-white/50">Trust</span>
-                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-accent-cyan">Lens</span>
+                <h1 className="text-7xl md:text-[9rem] font-black tracking-tighter text-white mb-8 leading-[0.9] drop-shadow-2xl select-none">
+                    <span className="block text-transparent bg-clip-text bg-gradient-to-b from-white via-white to-white/40">Trust</span>
+                    <span className="block text-transparent bg-clip-text bg-gradient-to-r from-blue-500 via-accent-cyan to-blue-400 animate-gradient-x">Lens</span>
                 </h1>
 
-                <p className="text-2xl md:text-3xl text-text-secondary max-w-3xl mx-auto leading-relaxed font-light">
-                    The intelligence that <span className="text-white font-medium">explains</span>, rather than <span className="text-white font-medium">guesses</span>.
+                <p className="text-2xl md:text-4xl text-text-secondary max-w-4xl mx-auto leading-relaxed font-light tracking-wide">
+                    The intelligence that <span className="text-white font-medium border-b border-blue-500/50">explains</span>, rather than <span className="text-white font-medium border-b border-red-500/50">guesses</span>.
                 </p>
             </motion.div>
 
             <motion.div
-                initial={{ opacity: 0, y: 20 }}
+                initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.8, delay: 0.2 }}
-                className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4"
+                transition={{ duration: 1, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                className="flex flex-col sm:flex-row items-center justify-center gap-6 pt-8"
             >
-                <Link to="/analyze" className="group relative px-8 py-4 bg-blue-600 rounded-lg overflow-hidden transition-all hover:bg-blue-500 shadow-lg shadow-blue-500/20">
-                    <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
-                    <span className="relative flex items-center gap-2 font-semibold text-white">
-                        Analyze with Confidence <ArrowRight className="w-4 h-4 ml-1 transition-transform group-hover:translate-x-1" />
+                <Link to="/analyze" className="group relative px-10 py-5 bg-blue-600 rounded-full overflow-hidden transition-all hover:bg-blue-500 shadow-xl shadow-blue-500/20 hover:shadow-blue-500/40 hover:scale-105 active:scale-95">
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-700 ease-in-out" />
+                    <span className="relative flex items-center gap-3 font-bold text-lg text-white tracking-wide">
+                        Analyze Code <ArrowRight className="w-5 h-5 transition-transform group-hover:translate-x-1" />
                     </span>
                 </Link>
                 <button
                     onClick={onOpenModal}
-                    className="px-8 py-4 rounded-lg border border-border hover:bg-surface text-text-secondary hover:text-white transition-colors"
+                    className="group px-10 py-5 rounded-full border border-white/10 hover:bg-white/5 text-text-secondary hover:text-white transition-all hover:scale-105 active:scale-95 font-medium tracking-wide flex items-center gap-3"
                 >
-                    See How It Works
+                    <Play className="w-4 h-4 fill-current opacity-50 group-hover:opacity-100 transition-opacity" />
+                    How It Works
                 </button>
             </motion.div>
         </div>
